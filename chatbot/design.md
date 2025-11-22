@@ -14,5 +14,3 @@
 ## Actions
 - Send Mails
 - Schedule Meetings
-
-## Next Steps

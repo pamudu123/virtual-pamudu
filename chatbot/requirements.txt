@@ -1,0 +1,6 @@
+langchain
+langchain-openai
+langgraph
+curl_cffi
+newspaper3k
+python-dotenv
