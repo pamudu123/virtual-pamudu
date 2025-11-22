@@ -1,0 +1,5 @@
+mcp
+requests
+python-dotenv
+feedparser
+cloudscraper
