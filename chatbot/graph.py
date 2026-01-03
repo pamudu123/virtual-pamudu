@@ -12,7 +12,7 @@ from tools import get_medium_article, get_youtube_video_info
 load_dotenv()
 
 # Initialize the model
-model = ChatOpenAI(model="gpt-5.1-mini")
+model = ChatOpenAI(model="gpt-5-mini-2025-08-07")
 tools = [get_medium_article, get_youtube_video_info]
 model = model.bind_tools(tools)
 
