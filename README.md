@@ -2,7 +2,7 @@
 
 **Virtual Pamudu** is a sophisticated AI agent designed to represent [Pamudu Ranasinghe](https://github.com/pamudu123). Built with **FastAPI** and **LangGraph**, it serves as an interactive interface to Pamudu's "Digital Brain," capable of answering questions about his background, projects, research, and content.
 
-## 🧠 Key Features
+## Key Features
 
 *   **Context-Aware Chat:** Maintains conversation history for natural, multi-turn dialogue.
 *   **Digital Brain:** Accesses structured personal data (Resume, Bio, Skills).
@@ -91,7 +91,7 @@ data: {"type": "result", "answer": "...", "citations": [...]}
     Create a `.env` file with the following keys:
     ```env
     OPENROUTER_API_KEY=sk-...
-    FIREBASE_CREDENTIALS_PATH=./virtual-assistant-firebase-adminsdk-1.json
+    FIREBASE_CREDENTIALS_PATH=./virtual-assistant-firebase-adminsdk.json
     GITHUB_TOKEN=ghp_...
     ```
 

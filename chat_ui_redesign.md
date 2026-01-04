@@ -16,7 +16,22 @@
 ### Header
 *   **Avatar:** A small avatar of you (or a robot icon) with a green "Online" dot.
 *   **Title:** "Pamudu AI" or "Digital Brain".
-*   **Controls:** Close (X) and perhaps a "Clear Chat" (Trash icon).
+*   **Controls:** 
+    *   `[ ! ]` **Info Icon:** Hover/Click to show "About System".
+    *   `[ 🗑️ ]` **Clear Chat:** Reset conversation.
+
+### About System Popover (Content for `!`)
+**Pamudu AI v1.0.0**
+
+**Key Features:**
+- Optimized context management to reduce tool calling.
+- Simultaneous tool calling.
+- Dynamic graph-based reasoning engine.
+
+**Key Capabilities so Far:**
+- Live data scraping from GitHub, Medium, & YouTube.
+- Deep context retrieval from academic papers & resume.
+- Autonomous email drafting & workflow execution.
 
 ### Message Area
 *   **User Bubble:** Aligned Right, solid dark color (Accent). Small text.
@@ -27,47 +42,107 @@
 ### Input Area
 *   **Floating Input:** A pill-shaped input field floating at the bottom.
 *   **Suggestions:** Before the user types, show 2-3 bubbles:
-    *   "Tell me about your experience"
-    *   "What are your latest projects?"
+    *   "Summarize AI Paper 📄"
+    *   "Find Python Projects 🐙"
+    *   "Draft Email 📧"
 
-## 4. Frontend Integration
-### Backend URL
-**`https://virtual-pamudu-bt71onx2g-pamudu-ranasinghes-projects.vercel.app`**
+## 4. Frontend Integration Guide
 
-### Connection Example (Streaming)
-Since the endpoint is `POST`, use `fetch` instead of `EventSource`.
+### 1. Backend URL
+**Base URL:** `https://virtual-pamudu-git-main-pamudu-ranasinghes-projects.vercel.app`
+
+### 2. API Endpoints
+
+#### A. Create Session (Required Step 1)
+Create a session ID before starting a chat.
+*   **Method:** `POST`
+*   **Endpoint:** `/sessions`
+*   **Body:** (Empty)
+
+**Response:**
+```json
+{
+  "session_id": "unique-session-id",
+  "created_at": "..."
+}
+```
+
+#### B. Chat with Streaming (Step 2)
+Send a message and receive real-time "Thinking" updates.
+*   **Method:** `POST`
+*   **Endpoint:** `/chat/stream`
+*   **Content-Type:** `application/json`
+*   **Body:**
+    ```json
+    {
+      "session_id": "unique-session-id",
+      "message": "Hello"
+    }
+    ```
+
+### 3. Implementation Code (React/JavaScript)
+Use this helper function to handle connection and streaming.
 
 ```javascript
-const API_URL = "https://virtual-pamudu-bt71onx2g-pamudu-ranasinghes-projects.vercel.app";
+const API_URL = "https://virtual-pamudu-git-main-pamudu-ranasinghes-projects.vercel.app";
 
-async function sendMessage(sessionId, message) {
-  const response = await fetch(`${API_URL}/chat/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, message: message })
-  });
+// 1. Create a Session
+async function createSession() {
+  try {
+    const res = await fetch(`${API_URL}/sessions`, { method: "POST" });
+    const data = await res.json();
+    return data.session_id; // Save this in localStorage
+  } catch (error) {
+    console.error("Failed to create session:", error);
+  }
+}
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
+// 2. Send Message & Stream Response
+async function sendMessage(sessionId, userMessage, onStatusUpdate, onFinalResult) {
+  try {
+    const response = await fetch(`${API_URL}/chat/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, message: userMessage })
+    });
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-    const chunk = decoder.decode(value);
-    const lines = chunk.split("\n\n");
-    
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const event = JSON.parse(line.slice(6));
-        
-        if (event.type === "status") {
-          console.log("Thinking:", event.message); // Update UI "Thinking..."
-        } else if (event.type === "result") {
-          console.log("Answer:", event.answer);   // Show final answer
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n\n");
+      
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const event = JSON.parse(line.slice(6));
+            
+            if (event.type === "status") {
+              onStatusUpdate(event.message); 
+            } else if (event.type === "result") {
+              onFinalResult(event.answer, event.citations);
+            }
+          } catch (e) { console.error("Parse error:", e); }
         }
       }
     }
+  } catch (error) {
+    console.error("Stream error:", error);
   }
 }
+```
+
+### 4. Displaying Citations (UI Example)
+When the API returns a result, it includes a `citations` array. Here is how to render them as "Chips" below the message.
+
+**Data Structure:**
+```json
+"citations": [
+  { "source_type": "github", "source_name": "virtual-pamudu", "url": "https://..." },
+  { "source_type": "brain", "source_name": "resume.md", "url": "" }
+]
 ```
