@@ -9,6 +9,7 @@ from typing import Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -16,6 +17,12 @@ from dotenv import load_dotenv
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from utils import setup_logging
+
+# Initialize logging early
+setup_logging()
+logger = structlog.get_logger()
 
 load_dotenv()
 
@@ -73,6 +80,7 @@ class FirebaseChatSession:
     def __init__(self, session_id: str, firebase: FirebaseService):
         self.session_id = session_id
         self.firebase = firebase
+        self.log = logger.bind(session_id=session_id)
     
     def chat(self, user_message: str) -> dict:
         """
@@ -81,6 +89,8 @@ class FirebaseChatSession:
         Returns:
             Dict with 'answer', 'citations', 'turn_count'
         """
+        self.log.info("processing_message", message_length=len(user_message))
+        
         # Load conversation history from Firebase
         messages = self.firebase.get_messages(self.session_id)
         conversation_history = [
@@ -107,6 +117,8 @@ class FirebaseChatSession:
         updated_messages = self.firebase.get_messages(self.session_id)
         turn_count = len(updated_messages) // 2
         
+        self.log.info("message_processed", turn_count=turn_count)
+        
         return {
             "answer": answer,
             "citations": citations,
@@ -119,15 +131,15 @@ class FirebaseChatSession:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - initialize Firebase on startup."""
-    print("🚀 Starting Virtual Pamudu Chat API...")
+    logger.info("startup", service="virtual_pamudu_api")
     try:
         firebase = get_firebase_service()
-        print("✅ Firebase connected")
+        logger.info("firebase_connected")
     except Exception as e:
-        print(f"⚠️ Firebase not initialized: {e}")
-        print("   Sessions will fail until Firebase is configured.")
+        logger.error("firebase_init_failed", error=str(e))
+        logger.warning("firebase_unavailable_warning")
     yield
-    print("👋 Shutting down...")
+    logger.info("shutdown")
 
 
 # --- FASTAPI APP ---
@@ -185,12 +197,14 @@ async def create_session():
     try:
         firebase = get_firebase_service()
         session_id = firebase.create_session()
+        logger.info("session_created", session_id=session_id)
         
         return CreateSessionResponse(
             session_id=session_id,
             created_at=datetime.utcnow().isoformat()
         )
     except Exception as e:
+        logger.error("session_creation_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
 
 
@@ -202,6 +216,7 @@ async def get_session(session_id: str):
         session = firebase.get_session(session_id)
         
         if not session:
+            logger.warning("session_not_found", session_id=session_id)
             raise HTTPException(status_code=404, detail="Session not found")
         
         messages = session.get("messages", [])
@@ -216,6 +231,7 @@ async def get_session(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("get_session_failed", session_id=session_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to get session: {str(e)}")
 
 
@@ -227,12 +243,15 @@ async def delete_session(session_id: str):
         deleted = firebase.delete_session(session_id)
         
         if not deleted:
+            logger.warning("delete_session_not_found", session_id=session_id)
             raise HTTPException(status_code=404, detail="Session not found")
         
+        logger.info("session_deleted", session_id=session_id)
         return {"message": "Session deleted", "session_id": session_id}
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("delete_session_failed", session_id=session_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
 
 
@@ -244,12 +263,15 @@ async def clear_session_history(session_id: str):
         cleared = firebase.clear_messages(session_id)
         
         if not cleared:
+            logger.warning("clear_history_session_not_found", session_id=session_id)
             raise HTTPException(status_code=404, detail="Session not found")
         
+        logger.info("history_cleared", session_id=session_id)
         return {"message": "History cleared", "session_id": session_id}
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("clear_history_failed", session_id=session_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to clear history: {str(e)}")
 
 
@@ -268,6 +290,7 @@ async def chat(request: ChatRequest):
         # Verify session exists
         session = firebase.get_session(request.session_id)
         if not session:
+            logger.warning("chat_session_not_found", session_id=request.session_id)
             raise HTTPException(status_code=404, detail="Session not found. Create one with POST /sessions")
         
         # Create Firebase-backed chat session and process message
@@ -283,20 +306,17 @@ async def chat(request: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("chat_failed", session_id=request.session_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
 # --- MAIN ---
-
 if __name__ == "__main__":
     import uvicorn
     
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
     
-    print(f"\n🤖 Virtual Pamudu Chat API")
-    print(f"   Running on http://localhost:{port}")
-    print(f"   Docs: http://localhost:{port}/docs")
-    print()
+    logger.info("starting_server", host=host, port=port)
     
     uvicorn.run(app, host=host, port=port)

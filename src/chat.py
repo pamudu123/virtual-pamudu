@@ -5,8 +5,10 @@ A stateful chat system with conversation memory for coherent dialogues.
 
 import os
 import operator
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, Literal
 from dotenv import load_dotenv
+
+import structlog
 
 # LangGraph Imports
 from langgraph.graph import StateGraph, END
@@ -15,8 +17,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 # Import utilities
-from utils import load_shortcut_keys
-from typing import Literal
+from utils import load_shortcut_keys, setup_logging
 
 # Import tool logic
 from tools.brain_tools import fetch_brain_context
@@ -29,6 +30,9 @@ from tools.github_tools import (
 from tools.mail_tool import send_simple_email
 
 load_dotenv()
+
+# Get logger (assuming setup_logging is called by app or main)
+logger = structlog.get_logger()
 
 # Load shortcut keys at module level for use as type
 SHORTCUT_KEYS = load_shortcut_keys()
@@ -54,7 +58,7 @@ def get_llm():
     """Lazy initialization of the LLM using OpenRouter."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     return ChatOpenAI(
-        model="google/gemini-2.0-flash-thinking-exp-1219", 
+        model="google/gemini-3-flash-preview", 
         temperature=0,
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1"
@@ -148,7 +152,9 @@ def planner_node(state: AgentState) -> dict:
     NODE 1: Decides IF we need data and WHAT tools to use.
     Analyzes the user query with conversation history context.
     """
-    print("🤔 Planner: Analyzing query...")
+    log = logger.bind(node="planner")
+    log.info("analyzing_query", query=state['query'])
+    
     user_query = state['query']
     history = state.get('conversation_history', [])
     
@@ -220,9 +226,9 @@ You have access to 5 TOOLS:
     planner_llm = llm.with_structured_output(AgentPlan)
     plan = planner_llm.invoke(messages)
 
-    print(f"   📋 Plan: need_info={plan.need_external_info}, calls={len(plan.tool_calls)}")
+    log.info("plan_generated", need_info=plan.need_external_info, tool_calls=len(plan.tool_calls))
     for tc in plan.tool_calls:
-        print(f"      → {tc.tool}.{tc.action}({tc.params})")
+        log.info("tool_plan", tool=tc.tool, action=tc.action, params=str(tc.params))
 
     # Convert to dicts for state storage
     calls_as_dicts = [tc.model_dump() for tc in plan.tool_calls] if plan.need_external_info else []
@@ -235,7 +241,9 @@ def executor_node(state: AgentState) -> dict:
     NODE 2: Runs the tool calls based on the plan.
     Executes searches against brain, Medium, YouTube, and GitHub.
     """
-    print("⚡ Executor: Running tools...")
+    log = logger.bind(node="executor")
+    log.info("running_tools")
+    
     tool_calls = state['plan']
     results = []
 
@@ -244,7 +252,7 @@ def executor_node(state: AgentState) -> dict:
         action = tc.get('action', '')
         params = tc.get('params', {})
 
-        print(f"   ▶️ {tool}.{action}({params})")
+        log.info("executing_tool", tool=tool, action=action, params=str(params))
 
         try:
             data = None
@@ -389,12 +397,14 @@ def executor_node(state: AgentState) -> dict:
                         results.append(f"--- EMAIL: Failed to send ---\nError: {data.get('error')}\n")
 
             else:
+                log.error("unknown_tool", tool=tool)
                 results.append(f"--- ERROR: Unknown tool '{tool}' ---\n")
 
         except Exception as e:
+            log.error("tool_execution_failed", tool=tool, action=action, error=str(e))
             results.append(f"--- ERROR: {tool}.{action} failed: {str(e)} ---\n")
 
-    print(f"   ✅ Found {len(results)} result(s)")
+    log.info("results_found", count=len(results))
     return {"results": results}
 
 
@@ -403,7 +413,9 @@ def synthesizer_node(state: AgentState) -> dict:
     NODE 3: Generates the final answer with structured citations.
     Uses conversation history for coherent responses.
     """
-    print("🧠 Synthesizer: Generating response...")
+    log = logger.bind(node="synthesizer")
+    log.info("generating_response")
+    
     query = state['query']
     results = state.get('results', [])
     history = state.get('conversation_history', [])
@@ -457,7 +469,7 @@ CITATIONS:
     if not has_new_results:
         # Use regular LLM call for faster response (no need for structured output)
         response = llm.invoke(messages)
-        print("   📚 Citations: 0 source(s) (simple response)")
+        log.info("generated_simple_response")
         return {
             "final_answer": response.content,
             "citations": []
@@ -470,9 +482,9 @@ CITATIONS:
     # Convert citations to dicts for state storage
     citations_as_dicts = [c.model_dump() for c in response.citations]
     
-    print(f"   📚 Citations: {len(citations_as_dicts)} source(s)")
+    log.info("generated_structured_response", citations=len(citations_as_dicts))
     for c in response.citations:
-        print(f"      → [{c.source_type}] {c.source_name}")
+        log.info("citation", source_type=c.source_type, source_name=c.source_name)
     
     return {
         "final_answer": response.answer,
@@ -488,7 +500,7 @@ def should_search(state: AgentState) -> str:
     Returns 'search' if plan has queries, 'skip' otherwise.
     """
     if not state.get('plan'):
-        print("⏭️  No search needed. Skipping to synthesizer.")
+        logger.info("skip_search")
         return "skip"
     return "search"
 
@@ -543,9 +555,14 @@ class ChatSession:
         Returns:
             Dict with 'answer', 'citations', and 'history_length'.
         """
-        print(f"\n{'='*60}")
-        print(f"💬 User: {user_message}")
-        print('='*60)
+        # Kept these prints as they likely serve a UI purpose in some contexts, but internal logs are structural.
+        # However, purely interactive logs are in start_chat(). These might be duplicate if used in CLI.
+        # But app.py uses this class too. 
+        # app.py calls chat(), and app.py doesn't want random prints to stdout if not needed.
+        # So I will change these to logs as well, assuming start_chat handles the UI.
+        
+        log = logger.bind(user_message_length=len(user_message))
+        log.info("processing_new_message")
         
         # Run the agent with conversation history
         inputs = {
@@ -563,6 +580,8 @@ class ChatSession:
         self.conversation_history.append({"role": "user", "content": user_message})
         self.conversation_history.append({"role": "assistant", "content": answer})
         
+        log.info("message_complete", history_length=len(self.conversation_history) // 2)
+        
         return {
             "answer": answer,
             "citations": citations,
@@ -572,7 +591,7 @@ class ChatSession:
     def clear_history(self):
         """Clear the conversation history."""
         self.conversation_history = []
-        print("🧹 Conversation history cleared.")
+        logger.info("history_cleared")
     
     def get_history(self) -> list[dict]:
         """Get the current conversation history."""
@@ -583,8 +602,12 @@ class ChatSession:
 
 def start_chat():
     """Start an interactive chat session."""
+    # Ensure logging is set up if running standalone
+    setup_logging()
+    
     session = ChatSession()
     
+    # Interaction UI - kept as prints
     print("\n" + "="*60)
     print("🤖 Virtual Pamudu Chat")
     print("="*60)
@@ -608,6 +631,7 @@ def start_chat():
             
             elif user_input.lower() == '/clear':
                 session.clear_history()
+                print("🧹 Conversation history cleared.")  # UI feedback
                 continue
             
             elif user_input.lower() == '/history':
@@ -643,6 +667,7 @@ def start_chat():
             print("\n\n👋 Goodbye!")
             break
         except Exception as e:
+            logger.error("chat_loop_error", error=str(e))
             print(f"\n❌ Error: {str(e)}")
             print("Please try again.\n")
 
