@@ -595,6 +595,74 @@ class ChatSession:
             "history_length": len(self.conversation_history) // 2  # Number of turns
         }
     
+    def chat_stream(self, user_message: str):
+        """
+        Stream the agent's execution steps and final response.
+        Yields generator of status updates and final result.
+        """
+        log = logger.bind(user_message_length=len(user_message))
+        log.info("processing_new_message_stream")
+        
+        inputs = {
+            "query": user_message,
+            "conversation_history": self.conversation_history.copy(),
+            "results": [],
+            "citations": []
+        }
+        
+        final_answer = ""
+        
+        # 1. Yield Initial Status
+        yield {"type": "status", "node": "start", "message": "🧠 Analyzing request..."}
+        
+        # 2. Iterate through Graph Steps
+        for output in app.stream(inputs):
+            for node_name, state_update in output.items():
+                
+                if node_name == "planner":
+                    plan = state_update.get("plan", [])
+                    if plan:
+                        tool_names = [t.get('tool') for t in plan]
+                        actions = [t.get('action') for t in plan]
+                        # Create a nice message like "Searching GitHub, Reading Medium..."
+                        details = []
+                        for t, a in zip(tool_names, actions):
+                            if t == 'github': details.append("GitHub")
+                            elif t == 'medium': details.append("Medium")
+                            elif t == 'youtube': details.append("YouTube")
+                            elif t == 'brain': details.append("Brain")
+                            elif t == 'email': details.append("Email")
+                        
+                        unique_tools = list(set(details))
+                        msg = f"🔎 Using tools: {', '.join(unique_tools)}..."
+                        yield {"type": "status", "node": "planner", "message": msg}
+                    else:
+                        yield {"type": "status", "node": "planner", "message": "📝 Thinking..."}
+                        
+                elif node_name == "executor":
+                    results = state_update.get("results", [])
+                    msg = f"📊 Analyzed {len(results)} search results."
+                    yield {"type": "status", "node": "executor", "message": msg}
+                    yield {"type": "status", "node": "synthesizer", "message": "✍️ Drafting response..."}
+                    
+                elif node_name == "synthesizer":
+                    final_answer = state_update.get("final_answer", "")
+                    citations = state_update.get("citations", [])
+                    
+                    # Final Result
+                    yield {
+                        "type": "result",
+                        "answer": final_answer,
+                        "citations": citations,
+                        "history_length": len(self.conversation_history) // 2 + 1
+                    }
+                    
+        # 3. Update History
+        self.conversation_history.append({"role": "user", "content": user_message})
+        self.conversation_history.append({"role": "assistant", "content": final_answer})
+        
+        log.info("message_stream_complete")
+
     def clear_history(self):
         """Clear the conversation history."""
         self.conversation_history = []

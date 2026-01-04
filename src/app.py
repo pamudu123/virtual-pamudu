@@ -9,8 +9,10 @@ from typing import Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
+import json
 import structlog
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -120,10 +122,43 @@ class FirebaseChatSession:
         self.log.info("message_processed", turn_count=turn_count)
         
         return {
-            "answer": answer,
-            "citations": citations,
             "turn_count": turn_count
         }
+
+    def chat_stream(self, user_message: str):
+        """
+        Process a chat message via streaming and persist to Firebase at the end.
+        Yields events: status, result
+        """
+        self.log.info("processing_message_stream")
+        
+        # Load conversation history from Firebase
+        messages = self.firebase.get_messages(self.session_id)
+        conversation_history = [
+            {"role": m["role"], "content": m["content"]} 
+            for m in messages
+        ]
+        
+        # Create a temporary ChatSession (in-memory) with the history loaded
+        # We use the raw ChatSession logic but inject history
+        temp_session = ChatSession()
+        temp_session.conversation_history = conversation_history
+        
+        # Stream events
+        final_answer = ""
+        citations = []
+        
+        for event in temp_session.chat_stream(user_message):
+            yield event
+            
+            if event["type"] == "result":
+                final_answer = event["answer"]
+                citations = event["citations"]
+        
+        # Save the turn to Firebase (only after stream completes)
+        if final_answer:
+            self.firebase.add_turn(self.session_id, user_message, final_answer)
+            self.log.info("message_processed_stream_saved")
 
 
 # --- APP LIFESPAN ---
@@ -307,6 +342,43 @@ async def chat(request: ChatRequest):
         raise
     except Exception as e:
         logger.error("chat_failed", session_id=request.session_id, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+    
+    
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    """
+    Send a message and get a streaming response (Server-Sent Events).
+    Events:
+    - data: {"type": "status", "node": "...", "message": "..."}
+    - data: {"type": "result", "answer": "...", "citations": [...]}
+    """
+    try:
+        firebase = get_firebase_service()
+        
+        # Verify session exists
+        session = firebase.get_session(request.session_id)
+        if not session:
+            logger.warning("chat_session_not_found", session_id=request.session_id)
+            raise HTTPException(status_code=404, detail="Session not found.")
+        
+        async def event_generator():
+            try:
+                chat_session = FirebaseChatSession(request.session_id, firebase)
+                for event in chat_session.chat_stream(request.message):
+                    # Format as SSE
+                    yield f"data: {json.dumps(event)}\n\n"
+            except Exception as e:
+                logger.error("stream_error", error=str(e))
+                err_event = {"type": "error", "message": f"Stream failed: {str(e)}"}
+                yield f"data: {json.dumps(err_event)}\n\n"
+        
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("chat_stream_failed", session_id=request.session_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
 
 
