@@ -1,3 +1,8 @@
+"""
+Virtual Pamudu Chat - Multi-turn Conversational Interface
+A stateful chat system with conversation memory for coherent dialogues.
+"""
+
 import os
 import operator
 from typing import Annotated, TypedDict
@@ -5,7 +10,7 @@ from dotenv import load_dotenv
 
 # LangGraph Imports
 from langgraph.graph import StateGraph, END
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -29,9 +34,12 @@ load_dotenv()
 SHORTCUT_KEYS = load_shortcut_keys()
 ShortcutKey = Literal[SHORTCUT_KEYS]  # type: ignore
 
+
 # --- 1. DEFINE THE STATE (Shared Memory) ---
 class AgentState(TypedDict):
     query: str
+    # Conversation history for multi-turn coherence
+    conversation_history: list[dict]  # [{"role": "user/assistant", "content": "..."}]
     # 'plan' is a list of search arguments (shortcuts/keywords)
     plan: list[dict]
     # 'results' is a list of strings found from the tools
@@ -43,8 +51,14 @@ class AgentState(TypedDict):
 
 # --- 2. DEFINE THE MODEL & SCHEMA ---
 def get_llm():
-    """Lazy initialization of the LLM to avoid import-time failures."""
-    return ChatOpenAI(model="gpt-5.1", temperature=0)
+    """Lazy initialization of the LLM using OpenRouter."""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    return ChatOpenAI(
+        model="google/gemini-2.0-flash-thinking-exp-1219", 
+        temperature=0,
+        api_key=api_key,
+        base_url="https://openrouter.ai/api/v1"
+    )
 
 
 # We use Pydantic to force the LLM to return a structured Plan
@@ -70,7 +84,7 @@ class ToolCall(BaseModel):
         description="The tool to use: 'brain', 'medium', 'youtube', 'github', or 'email'."
     )
     action: str = Field(
-        description="The specific action: 'search', 'list', 'get_content', 'get_status', 'get_transcript', 'get_readme', 'list_prs', 'check_reviews', 'send'."
+        description="The specific action: 'search', 'list', 'get_content', 'get_transcript', 'get_readme', 'get_file', 'search_and_read', 'send'."
     )
     params: ToolParams = Field(
         default_factory=ToolParams,
@@ -116,18 +130,41 @@ class AgentResponse(BaseModel):
 
 # --- 3. DEFINE NODES ---
 
+def _format_conversation_history(history: list[dict]) -> str:
+    """Format conversation history for context."""
+    if not history:
+        return ""
+    
+    formatted = []
+    for msg in history:
+        role = "User" if msg['role'] == 'user' else "Assistant"
+        formatted.append(f"{role}: {msg['content']}")
+    
+    return "\n".join(formatted)
+
+
 def planner_node(state: AgentState) -> dict:
     """
     NODE 1: Decides IF we need data and WHAT tools to use.
-    Analyzes the user query and generates a plan with tool calls.
+    Analyzes the user query with conversation history context.
     """
     print("🤔 Planner: Analyzing query...")
     user_query = state['query']
+    history = state.get('conversation_history', [])
+    
+    # Format conversation history for context
+    history_context = _format_conversation_history(history)
 
-    # System prompt to guide the planning
+    # System prompt with conversation awareness
     system_msg = """You are a research planner for Pamudu's personal AI assistant.
 
-You have access to 4 TOOLS:
+CONVERSATION CONTEXT:
+You have access to the recent conversation history. Use it to:
+1. Understand follow-up questions (e.g., "tell me more about that", "what else?")
+2. Resolve pronouns and references to previous topics
+3. Maintain context across multiple turns
+
+You have access to 5 TOOLS:
 
 ## 1. BRAIN TOOL (Personal Knowledge Base)
 - action: "search"
@@ -158,61 +195,30 @@ You have access to 4 TOOLS:
 ## 5. EMAIL TOOL (Send Emails)
 - action: "send" → params: {"email_subject": "...", "email_content": "...", "email_cc": "..."}
 - Emails are always sent to Pamudu
-- email_cc is optional (can be empty string)
 - Use for: Sending emails, notifications, summaries to Pamudu.
 
 ## RULES:
-1. If query is about Pamudu (personal info, work, skills), use BRAIN tool.
-2. If query is about articles/blog posts, use MEDIUM tool.
-3. If query is about videos/video content, use YOUTUBE tool.
-4. If query is about code/repos/GitHub activity, use GITHUB tool.
-5. If query asks to send/email something, use EMAIL tool.
-6. You can use MULTIPLE tools if the query spans multiple areas.
-7. For general knowledge questions (not about Pamudu), set need_external_info=False.
+1. Use conversation history to understand context and follow-ups.
+2. If user says "tell me more" or similar, infer the topic from history.
+3. If query is about Pamudu (personal info, work, skills), use BRAIN tool.
+4. If query is about articles/blog posts, use MEDIUM tool.
+5. If query is about videos/video content, use YOUTUBE tool.
+6. If query is about code/repos/GitHub activity, use GITHUB tool.
+7. If query asks to send/email something, use EMAIL tool.
+8. For general conversational responses or follow-ups that don't need new data, set need_external_info=False."""
 
-## EXAMPLES:
-
-Query: "Who is Pamudu and what has he written about AI?"
-{
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "brain", "action": "search", "params": {"shortcuts": ["bio"], "keywords": []}},
-    {"tool": "medium", "action": "search", "params": {"keywords": ["AI", "artificial intelligence"]}}
-  ]
-}
-
-Query: "Show me Pamudu's latest YouTube videos"
-{
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "youtube", "action": "list", "params": {"limit": 5}}
-  ]
-}
-
-Query: "What GitHub projects does Pamudu have about machine learning?"
-{
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "github", "action": "search", "params": {"keywords": ["machine learning", "ml", "AI"]}}
-  ]
-}
-
-Query: "Send me an email with Pamudu's bio"
-{
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "brain", "action": "search", "params": {"shortcuts": ["bio"]}},
-    {"tool": "email", "action": "send", "params": {"email_subject": "Pamudu's Bio", "email_content": "[Will be filled with bio content]", "email_cc": ""}}
-  ]
-}"""
+    # Build messages with conversation history
+    messages = [SystemMessage(content=system_msg)]
+    
+    if history_context:
+        messages.append(HumanMessage(content=f"CONVERSATION HISTORY:\n{history_context}\n\nCURRENT QUERY: {user_query}"))
+    else:
+        messages.append(HumanMessage(content=user_query))
 
     # Use 'with_structured_output' to get JSON back reliably
     llm = get_llm()
     planner_llm = llm.with_structured_output(AgentPlan)
-    plan = planner_llm.invoke([
-        SystemMessage(content=system_msg),
-        HumanMessage(content=user_query)
-    ])
+    plan = planner_llm.invoke(messages)
 
     print(f"   📋 Plan: need_info={plan.need_external_info}, calls={len(plan.tool_calls)}")
     for tc in plan.tool_calls:
@@ -369,7 +375,6 @@ def executor_node(state: AgentState) -> dict:
                     
                     # If content references previous results, include them
                     if not content or '[Will be filled' in content:
-                        # Use accumulated results as content
                         content = "\n".join(results) if results else "No content available."
                     
                     data = send_simple_email(
@@ -396,37 +401,69 @@ def executor_node(state: AgentState) -> dict:
 def synthesizer_node(state: AgentState) -> dict:
     """
     NODE 3: Generates the final answer with structured citations.
-    Reads the fetched content and responds to the user.
+    Uses conversation history for coherent responses.
     """
     print("🧠 Synthesizer: Generating response...")
     query = state['query']
     results = state.get('results', [])
+    history = state.get('conversation_history', [])
 
     # Create the context block
-    if results:
+    has_new_results = bool(results)
+    if has_new_results:
         context_block = "\n".join(results)
     else:
-        context_block = "No search results available. Answer based on general knowledge if possible, or indicate that you don't have specific information about Pamudu."
+        context_block = "No new search results available."
 
-    messages = [
-        SystemMessage(content="""You are Pamudu's personal AI assistant. 
+    # Include history for follow-up context
+    history_context = _format_conversation_history(history) if not has_new_results else ""
+
+    system_prompt = """You are Pamudu's personal AI assistant. 
+
+CONVERSATION AWARENESS:
+- You have access to the conversation history below
+- Maintain coherence with previous exchanges
+- Reference earlier topics naturally when relevant
+- Use the conversation flow to provide more personalized responses
 
 RULES:
-1. Answer based ONLY on the provided context when it contains relevant information.
-2. If the context doesn't have the answer, say "I don't have that information in my knowledge base."
+1. Answer based on the provided context AND conversation history.
+2. If context doesn't have new info, you can reference previous answers.
 3. Be concise but informative.
 4. Maintain a friendly, professional tone as if you're representing Pamudu.
+5. For follow-up questions, build on your previous responses.
 
 CITATIONS:
-- Include citations for ALL sources you used from the context.
+- Include citations for ALL sources you used from the NEW context.
 - Extract the source_type from the context header (BRAIN, GITHUB, MEDIUM, YOUTUBE).
 - Extract the source_name (file path, repo name, article title, video title).
 - Extract the URL if present in the context.
-- Only include citations for sources you actually referenced in your answer."""),
-        HumanMessage(content=f"User Query: {query}\n\n--- RETRIEVED CONTEXT ---\n{context_block}")
+- Only include citations for sources you actually referenced in your answer."""
+
+    # Build the full context
+    full_context = f"User Query: {query}\n\n"
+    if history_context:
+        full_context += f"--- CONVERSATION HISTORY ---\n{history_context}\n\n"
+    full_context += f"--- RETRIEVED CONTEXT ---\n{context_block}"
+
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=full_context)
     ]
 
     llm = get_llm()
+    
+    # Fast path for simple responses (no new context = greeting/follow-up)
+    if not has_new_results:
+        # Use regular LLM call for faster response (no need for structured output)
+        response = llm.invoke(messages)
+        print("   📚 Citations: 0 source(s) (simple response)")
+        return {
+            "final_answer": response.content,
+            "citations": []
+        }
+    
+    # Full structured output for responses with citations
     structured_llm = llm.with_structured_output(AgentResponse)
     response = structured_llm.invoke(messages)
     
@@ -469,75 +506,148 @@ workflow.add_node("synthesizer", synthesizer_node)
 workflow.set_entry_point("planner")
 
 # Add Edges
-# Planner -> (Condition) -> Executor OR Synthesizer
 workflow.add_conditional_edges(
     "planner",
     should_search,
     {
         "search": "executor",
-        "skip": "synthesizer"  # If no search needed, go to synthesizer
+        "skip": "synthesizer"
     }
 )
 
-# Executor -> Synthesizer
 workflow.add_edge("executor", "synthesizer")
-
-# Synthesizer -> End
 workflow.add_edge("synthesizer", END)
 
 # Compile the graph
 app = workflow.compile()
 
 
-# --- 6. PUBLIC INTERFACE ---
+# --- 6. CHAT SESSION CLASS ---
 
-def run_agent(query: str) -> dict:
+class ChatSession:
     """
-    Run the agent with a user query.
+    A stateful chat session that maintains conversation history.
+    """
     
-    Args:
-        query: The user's question or request.
+    def __init__(self):
+        """Initialize a new chat session."""
+        self.conversation_history: list[dict] = []
+    
+    def chat(self, user_message: str) -> dict:
+        """
+        Send a message and get a response.
         
-    Returns:
-        Dict with 'answer' (str) and 'citations' (list of dicts).
-        Each citation has: source_type, source_name, url
-    """
-    print(f"\n{'='*60}")
-    print(f"💬 User: {query}")
-    print('='*60)
+        Args:
+            user_message: The user's message.
+            
+        Returns:
+            Dict with 'answer', 'citations', and 'history_length'.
+        """
+        print(f"\n{'='*60}")
+        print(f"💬 User: {user_message}")
+        print('='*60)
+        
+        # Run the agent with conversation history
+        inputs = {
+            "query": user_message,
+            "conversation_history": self.conversation_history.copy(),
+            "results": [],
+            "citations": []
+        }
+        result = app.invoke(inputs)
+        
+        answer = result.get('final_answer', 'No response generated.')
+        citations = result.get('citations', [])
+        
+        # Update conversation history (no limit)
+        self.conversation_history.append({"role": "user", "content": user_message})
+        self.conversation_history.append({"role": "assistant", "content": answer})
+        
+        return {
+            "answer": answer,
+            "citations": citations,
+            "history_length": len(self.conversation_history) // 2  # Number of turns
+        }
+    
+    def clear_history(self):
+        """Clear the conversation history."""
+        self.conversation_history = []
+        print("🧹 Conversation history cleared.")
+    
+    def get_history(self) -> list[dict]:
+        """Get the current conversation history."""
+        return self.conversation_history.copy()
 
-    inputs = {"query": query, "results": [], "citations": []}
-    result = app.invoke(inputs)
 
-    return {
-        "answer": result.get('final_answer', 'No response generated.'),
-        "citations": result.get('citations', [])
-    }
+# --- 7. INTERACTIVE CHAT LOOP ---
+
+def start_chat():
+    """Start an interactive chat session."""
+    session = ChatSession()
+    
+    print("\n" + "="*60)
+    print("🤖 Virtual Pamudu Chat")
+    print("="*60)
+    print("Type your questions below. Commands:")
+    print("  /clear  - Clear conversation history")
+    print("  /history - Show conversation history")
+    print("  /quit   - Exit the chat")
+    print("="*60 + "\n")
+    
+    while True:
+        try:
+            user_input = input("You: ").strip()
+            
+            if not user_input:
+                continue
+            
+            # Handle commands
+            if user_input.lower() == '/quit':
+                print("\n👋 Goodbye!")
+                break
+            
+            elif user_input.lower() == '/clear':
+                session.clear_history()
+                continue
+            
+            elif user_input.lower() == '/history':
+                history = session.get_history()
+                if not history:
+                    print("📜 No conversation history yet.")
+                else:
+                    print("\n📜 Conversation History:")
+                    for i, msg in enumerate(history):
+                        role = "You" if msg['role'] == 'user' else "Bot"
+                        print(f"  [{role}]: {msg['content'][:100]}{'...' if len(msg['content']) > 100 else ''}")
+                    print()
+                continue
+            
+            # Regular chat
+            response = session.chat(user_input)
+            
+            print(f"\n🤖 Assistant: {response['answer']}")
+            
+            if response['citations']:
+                print(f"\n📚 Sources ({len(response['citations'])}):")
+                for c in response['citations']:
+                    if c.get('url'):
+                        print(f"   • [{c['source_type']}] {c['source_name']}")
+                        print(f"     {c['url']}")
+                    else:
+                        print(f"   • [{c['source_type']}] {c['source_name']}")
+            
+            print(f"\n[Turn {response['history_length']}]")
+            print()
+            
+        except KeyboardInterrupt:
+            print("\n\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"\n❌ Error: {str(e)}")
+            print("Please try again.\n")
 
 
-# --- 7. MAIN (TESTING) ---
+# --- 8. MAIN ---
 
 if __name__ == "__main__":
-    # Test queries covering all tools
-    test_queries = [
-        "Who is Pamudu?",  # Brain only
-        "What articles has Pamudu written about AI?",  # Medium
-        "Show me Pamudu's latest YouTube videos",  # YouTube
-        "What GitHub repos does Pamudu have?",  # GitHub
-    ]
-
-    for query in test_queries:  # Run first query for quick test
-        response = run_agent(query)
-        print(f"\n🤖 Final Answer:\n{response['answer']}")
-        
-        if response['citations']:
-            print(f"\n📚 Sources ({len(response['citations'])}):")
-            for c in response['citations']:
-                if c.get('url'):
-                    print(f"   • [{c['source_type']}] {c['source_name']}")
-                    print(f"     {c['url']}")
-                else:
-                    print(f"   • [{c['source_type']}] {c['source_name']}")
-        
-        print("\n" + "="*60 + "\n")
-
+    start_chat()

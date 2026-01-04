@@ -1,5 +1,6 @@
 """
-GitHub Tools - Fetch repository info, PRs, and activity from GitHub.
+GitHub Tools - Fetch repository info and content from GitHub.
+Simplified for virtual assistant: search repos and read content from main branch.
 """
 
 import os
@@ -24,42 +25,6 @@ def _get_github() -> Github:
             raise ValueError("GITHUB_TOKEN not found in environment")
         _github_client = Github(GITHUB_TOKEN)
     return _github_client
-
-
-def get_repo_status(repo_name: str) -> dict:
-    """
-    Get status of a GitHub repository (like 'git status' for remote).
-    
-    Args:
-        repo_name: Name of the repository.
-        
-    Returns:
-        Dict with branch info, last commit, PR/issue counts, stars.
-    """
-    try:
-        g = _get_github()
-        repo = g.get_user(USER).get_repo(repo_name)
-        branch = repo.get_branch(repo.default_branch)
-        commit = branch.commit
-        
-        return {
-            "name": repo.name,
-            "full_name": repo.full_name,
-            "default_branch": repo.default_branch,
-            "last_commit": {
-                "sha": commit.sha[:7],
-                "message": commit.commit.message,
-                "date": str(commit.commit.author.date)
-            },
-            "open_prs": repo.get_pulls(state='open').totalCount,
-            "open_issues": repo.get_issues(state='open').totalCount,
-            "stars": repo.stargazers_count,
-            "forks": repo.forks_count,
-            "url": repo.html_url
-        }
-        
-    except Exception as e:
-        return {"error": f"Failed to get repo status: {str(e)}"}
 
 
 def list_my_repos(limit: int = 10) -> list[dict]:
@@ -92,95 +57,6 @@ def list_my_repos(limit: int = 10) -> list[dict]:
         
     except Exception as e:
         return [{"error": f"Failed to list repos: {str(e)}"}]
-
-
-def list_my_prs(state: str = "open", limit: int = 10) -> list[dict]:
-    """
-    List Pull Requests created by the user.
-    
-    Args:
-        state: 'open', 'closed', or 'all'.
-        limit: Maximum PRs to return.
-        
-    Returns:
-        List of PR metadata.
-    """
-    try:
-        g = _get_github()
-        query = f"author:{USER} type:pr state:{state}"
-        prs = g.search_issues(query=query)
-        
-        result = []
-        for pr in prs[:limit]:
-            result.append({
-                "number": pr.number,
-                "title": pr.title,
-                "repo": pr.repository.name if pr.repository else "unknown",
-                "state": pr.state,
-                "created": str(pr.created_at),
-                "url": pr.html_url
-            })
-        
-        return result
-        
-    except Exception as e:
-        return [{"error": f"Failed to list PRs: {str(e)}"}]
-
-
-def check_review_requests() -> list[dict]:
-    """
-    Check for PRs where the user's review has been requested.
-    
-    Returns:
-        List of PRs awaiting review.
-    """
-    try:
-        g = _get_github()
-        query = f"review-requested:{USER} state:open type:pr"
-        prs = g.search_issues(query=query)
-        
-        if prs.totalCount == 0:
-            return []
-        
-        result = []
-        for pr in prs:
-            result.append({
-                "number": pr.number,
-                "title": pr.title,
-                "repo": pr.repository.name if pr.repository else "unknown",
-                "url": pr.html_url
-            })
-        
-        return result
-        
-    except Exception as e:
-        return [{"error": f"Failed to check reviews: {str(e)}"}]
-
-
-def get_repo_readme(repo_name: str) -> dict:
-    """
-    Get the README content of a repository.
-    
-    Args:
-        repo_name: Name of the repository.
-        
-    Returns:
-        Dict with README content and metadata.
-    """
-    try:
-        g = _get_github()
-        repo = g.get_user(USER).get_repo(repo_name)
-        readme = repo.get_readme()
-        
-        return {
-            "repo": repo_name,
-            "filename": readme.name,
-            "content": readme.decoded_content.decode('utf-8'),
-            "url": readme.html_url
-        }
-        
-    except Exception as e:
-        return {"error": f"Failed to get README: {str(e)}"}
 
 
 def search_repos(keywords: list[str], limit: int = 5) -> list[dict]:
@@ -227,6 +103,113 @@ def search_repos(keywords: list[str], limit: int = 5) -> list[dict]:
         return [{"error": f"Search failed: {str(e)}"}]
 
 
+def get_repo_readme(repo_name: str) -> dict:
+    """
+    Get the README content of a repository from the main branch.
+    
+    Args:
+        repo_name: Name of the repository.
+        
+    Returns:
+        Dict with README content and metadata.
+    """
+    try:
+        g = _get_github()
+        repo = g.get_user(USER).get_repo(repo_name)
+        readme = repo.get_readme()
+        
+        return {
+            "repo": repo_name,
+            "branch": repo.default_branch,
+            "filename": readme.name,
+            "content": readme.decoded_content.decode('utf-8'),
+            "url": readme.html_url
+        }
+        
+    except Exception as e:
+        return {"error": f"Failed to get README: {str(e)}"}
+
+
+def get_file_content(repo_name: str, file_path: str) -> dict:
+    """
+    Get the content of a specific file from the main branch of a repository.
+    
+    Args:
+        repo_name: Name of the repository.
+        file_path: Path to the file in the repo (e.g., 'src/main.py').
+        
+    Returns:
+        Dict with file content and metadata.
+    """
+    try:
+        g = _get_github()
+        repo = g.get_user(USER).get_repo(repo_name)
+        
+        # Get file from the default (main) branch
+        file_content = repo.get_contents(file_path, ref=repo.default_branch)
+        
+        return {
+            "repo": repo_name,
+            "branch": repo.default_branch,
+            "file_path": file_path,
+            "filename": file_content.name,
+            "content": file_content.decoded_content.decode('utf-8'),
+            "size": file_content.size,
+            "url": file_content.html_url
+        }
+        
+    except Exception as e:
+        return {"error": f"Failed to get file content: {str(e)}"}
+
+
+def search_and_read_repo(keywords: list[str]) -> dict:
+    """
+    Search for the best matching repository and read its README from the main branch.
+    Combines search_repos and get_repo_readme for convenience.
+    
+    Args:
+        keywords: List of keywords to search for the repository.
+        
+    Returns:
+        Dict with repo info and README content, or error.
+    """
+    try:
+        # Search for the best matching repo
+        matches = search_repos(keywords, limit=1)
+        
+        if not matches:
+            return {"error": f"No repositories found matching: {keywords}"}
+        
+        if 'error' in matches[0]:
+            return matches[0]
+        
+        best_match = matches[0]
+        repo_name = best_match['name']
+        
+        # Get the README from the main branch
+        readme_result = get_repo_readme(repo_name)
+        
+        if 'error' in readme_result:
+            return {
+                "repo": best_match,
+                "readme": None,
+                "note": f"Found repo but couldn't read README: {readme_result['error']}"
+            }
+        
+        return {
+            "repo": {
+                "name": best_match['name'],
+                "description": best_match['description'],
+                "url": best_match['url'],
+                "matches": best_match['matches']
+            },
+            "readme": readme_result['content']
+        }
+        
+    except Exception as e:
+        return {"error": f"Search and read failed: {str(e)}"}
+
+
 # --- TESTING ---
 if __name__ == "__main__":
     print("🐙 Testing GitHub Tools...")
@@ -240,22 +223,11 @@ if __name__ == "__main__":
         else:
             print(f"  Error: {r['error']}")
     
-    # Test 2: Get repo status (if repos exist)
-    if repos and 'error' not in repos[0]:
-        print(f"\n--- Repo Status: {repos[0]['name']} ---")
-        status = get_repo_status(repos[0]['name'])
-        if 'error' not in status:
-            print(f"  Branch: {status['default_branch']}")
-            print(f"  Last commit: {status['last_commit']['message'][:50]}")
-            print(f"  Open PRs: {status['open_prs']}")
-        else:
-            print(f"  Error: {status['error']}")
-    
-    # Test 3: List PRs
-    print("\n--- My Open PRs ---")
-    prs = list_my_prs(state="open", limit=3)
-    for pr in prs:
-        if 'error' not in pr:
-            print(f"  • #{pr['number']} {pr['title']} ({pr['repo']})")
-        else:
-            print(f"  Error: {pr['error']}")
+    # Test 2: Search and read
+    print("\n--- Search and Read ---")
+    result = search_and_read_repo(["virtual"])
+    if 'error' not in result:
+        print(f"  Found: {result['repo']['name']}")
+        print(f"  README preview: {result['readme'][:200] if result['readme'] else 'No README'}...")
+    else:
+        print(f"  Error: {result['error']}")

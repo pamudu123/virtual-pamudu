@@ -8,87 +8,100 @@ confidence: high
 
 ## Lead AI Engineer
 **Organisation:** CreditSource  
-**Period:** Aug 2025 – Present  
-**Location:** Australia  
+**Period:** Aug 2025 – Present (6 mos)  
+**Location:** Australia (Remote)  
 
-- Lead the AI team, delivering machine-learning solutions for the financial domain.
+- Lead AI Engineer delivering machine-learning solutions for the financial domain.
 
-## Software Engineer (AI/ML)
-**Organisation:** Contractor for UnitedHealth Group via Virtusa  
-**Period:** Jul 2024 – Aug 2025  
-**Location:** USA (contract)  
+## Machine Learning Engineer
+**Organisation:** Virtusa (Contract for UnitedHealth Group / Optum)  
+**Period:** Jul 2024 – Aug 2025 (1 yr 2 mos)  
+**Location:** Sri Lanka (Hybrid)  
+
+- Assigned to work on generative AI–based applications for healthcare-related solutions at UnitedHealth Group (Optum).
+- Mentored interns by creating technical exercises, delivering knowledge-sharing sessions, and guiding project contributions to improve skills and outcomes.
+- **Skills:** Leadership, Technical Solution Design
+
+## AI Software Engineer
+**Organisation:** UnitedHealth Group (Contract)  
+**Period:** Jul 2024 – Aug 2025 (1 yr 2 mos)  
 
 - Worked on developing Advocate Assist, a system that processes 10M+ daily interactions.
-- Built a document extraction system parsing complex tables/text into structured outputs optimized for RAG, leading to a patent submission.
-- Initiated and led development of an MCP server unifying multiple services into a reusable platform (authentication, deployment, modular design).
-- Designed metric-driven frameworks and agentic workflows to evaluate RAG-based answers.
+- Built a document extraction system that parses complex tables and text into structured outputs optimized for RAG, leading to a patent submission.
+- Initiated and led the development of an MCP server that unified multiple services into a reusable platform with authentication, deployment, and modular design.
+- Designed metric-driven frameworks and agentic workflows to evaluate RAG-based answers in the healthcare domain.
 - Used LLMs as judges and advanced NLP techniques to assess response quality and relevance.
-- Aligned model-based evaluations with human review, reducing manual effort on complex healthcare queries.
-- Automated evaluation with Jenkins and GitHub Actions for continuous regression testing.
-- Developed an agentic evaluation workflow to measure multiple RAG metrics and deliver actionable insights.
+- Aligned model-based evaluations with human review, significantly reducing manual effort on complex healthcare queries.
+- Automated the evaluation pipeline with Jenkins and GitHub Actions for continuous regression testing and iterative improvement.
+- Developed a holistic agentic evaluation workflow to measure multiple RAG metrics and deliver concise, actionable insights.
 - Managed and deployed a microservices architecture on GCP using Terraform and Docker.
 - Built an agentic system for dynamic information extraction from complex conversational transcripts.
 - Created a proof of concept to query, retrieve, and visualize data from GCP BigQuery using natural language queries.
+- **Skills:** Generative AI, Retrieval-Augmented Generation (RAG), Multi-agent Systems, Continuous Integration and Continuous Delivery (CI/CD), Google Cloud Platform (GCP), Microservices
 
-## Freelance Consultant – AI R&D Engineer
-**Organisation:** vcLABs (Dialog TV)  
-**Period:** Jun 2024 – Jan 2025  
+## Outsource Consultant - AI Engineering (R&D)
+**Organisation:** Visual Concept Labs (Freeman context: DialogTV)  
+**Period:** Jun 2024 – Jul 2025 (1 yr 2 mos)  
 **Location:** Sri Lanka  
 
-- Fine-tuned and deployed Llama 3.1 70B model for internal Dialog use.
-- Forecasted channel viewership by timeslot for ad scheduling.
-- Modelled an advertisement scheduling system to optimize costs and maximize viewership for a given budget.
-- Built a schedule-extraction system from multiple formats, reducing staffing needs from six personnel to one.
+- Served as the single developer on AI projects for DialogTV, owning end-to-end design and implementation.
+- Fine-tuned and deployed the Llama 3.1 70B model for internal DialogTV applications.
+- Built a viewership forecasting system to predict channel performance across timeslots for optimized ad scheduling.
+- Designed and implemented a mathematical model for advertisement scheduling, optimizing costs and maximizing reach within budget, while targeting specific age groups, districts, and genres.
+- Developed a scheduling extraction system to process diverse formats, improving operational efficiency and reducing staffing needs.
 
-## Consultant AI Engineer
-**Organisation:** PekoeAI  
-**Period:** Mar 2023 – Jun 2024  
+## Artificial Intelligence Engineer
+**Organisation:** Pekoe  
+**Period:** Mar 2023 – Jun 2024 (1 yr 4 mos)  
 **Location:** Singapore  
 
-- Worked across the full ASR pipeline (annotation, model development, noise reduction, optimization); deployed an optimized model on Jetson Nano for real-time use.
-- Built a computer interface for a mechanical system integrating industrial cameras, deep learning models, multi-threading, and GUIs.
-- Developed OCR + tracking for rapidly moving tea sample boxes on a conveyor belt to improve processing accuracy.
-- Researched GenAI approaches to generate realistic tea samples with user feedback; delivered proof-of-concept.
-- Built an LLM-based approach to automate assistant tasks in tea grading.
-- Applied semi-supervised learning, contrastive learning, traditional CV, and state-of-the-art deep models for accurate matching of tea samples.
+- Built an end-to-end ASR pipeline (audio annotation, noise reduction, model training, and inference optimization); deployed an optimized model on NVIDIA Jetson Nano for real-time use.
+- Engineered a computer interface for a mechanical setup by integrating industrial cameras, deep learning inference, multithreaded processing, and operator GUIs.
+- Developed high-accuracy OCR and tracking for fast-moving tea sample boxes on a conveyor, significantly improving processing accuracy and throughput.
+- Researched Generative AI to create realistic synthetic tea samples with user-in-the-loop feedback.
+- Prototyped an LLM-driven assistant to automate tea grading tasks.
+- Applied semi-supervised and contrastive learning alongside classic CV and state-of-the-art deep models to reliably match tea samples.
+- **Skills:** Artificial Intelligence (AI), Computer Vision, Generative AI, Creative Problem Solving
 
 ## Freelance Software & AI Developer
-**Organisation:** Upwork, Fiverr  
-**Period:** Nov 2020 – Feb 2023  
+**Organisation:** Self Employed  
+**Period:** Apr 2020 – Feb 2023 (2 yrs 11 mos)  
 **Location:** Remote  
 
-- Delivered solutions for global clients across software and ML.
-- Built a 14-camera surveillance system to monitor human–machine interactions in an industrial workshop.
-- Implemented a thief detection system for supermarkets using action recognition.
-- Built an application to detect malicious websites.
-- Created an OCR-based dashboard to monitor a memory game for psychology research.
-- Improved wind turbine power prediction using hyper-parameter tuning and AutoML.
-- Developed a GUI-based ML application for mental health assessment.
+- 2.5+ years freelancing with global clients and reputable companies; delivered end-to-end ML/CV solutions from scoping to deployment.
+- **Industrial human-machine surveillance:** deployed a 14-camera system to monitor human-machine interactions; built multistream ingestion, event detection, and alerting.
+- **Fashion Trend Analyzer:** mined seasonal clothing patterns by age and gender using image segmentation, classic CV, and deep learning.
+- **Clinical notes at the edge:** real-time doctor-patient note-taking system running on NVIDIA Jetson Nano.
+- **Retail theft detection:** action-recognition pipeline to flag suspicious behaviors in supermarkets.
+- **Malicious site detector:** ML app to classify and block phishing/malware URLs.
+- **Cognitive research dashboard:** OCR-driven dashboard to track memory game performance for psychology studies.
+- **Wind power forecasting:** improved model accuracy via hyperparameter tuning and AutoML.
+- **Mental health assessment app:** GUI-based ML tool to support screening workflows.
+- **Skills:** Python (Programming Language), Machine Learning, MATLAB, Artificial Intelligence (AI), Computer Vision, Creative Problem Solving
 
-## Intern Machine Learning and AI Engineer
-**Organisation:** Aizenit Technologies  
-**Period:** Oct 2022 – Jan 2023  
-**Location:** London, UK  
+## Software Engineer - ML / AI
+**Organisation:** Aizenit (Internship)  
+**Period:** Oct 2022 – Jan 2023 (4 mos)  
+**Location:** United Kingdom (Remote)  
 
-- Fine-tuned LayoutLM and Donut transformer models for document information extraction.
-- Developed a deep learning architecture for table extraction from invoices.
-- Implemented optimizations to reduce latency and improve performance.
-- Worked with Azure Machine Learning Studio.
+- Fine-tuned document AI transformers (LayoutLM, Donut) for key-value and line-item extraction.
+- Designed a deep learning architecture for invoice table detection and structure recognition.
+- Optimized inference and pipelines to reduce latency and improve throughput and overall model performance.
+- Used Azure Machine Learning (Studio) for experiment tracking, training, and deployment.
+- **Skills:** Deep Learning, GPT, RCNN, Microsoft Azure, Natural Language Processing (NLP), Machine Learning, Object Detection, Optical Character Recognition (OCR), Microsoft Azure Machine Learning, BERT
 
-## Intern Computer Vision and AI Engineer
-**Organisation:** Ansell Lanka (Pvt) Ltd  
-**Period:** Aug 2022 – Oct 2022  
-**Location:** Biyagama, Sri Lanka  
+## Computer Vision and AI Engineer
+**Organisation:** Ansell (Internship)  
+**Period:** Aug 2022 – Oct 2022 (3 mos)  
 
-- Applied ML/DL methods including YOLOv5, CNNs, autoencoders, DBSCAN, and SVM.
-- Designed a cloud-based ML pipeline for data processing and analysis.
-- Worked with industrial vision cameras, light controllers, and laser profiling tools.
-- Focused on 3D data processing and recreation of 3D objects using sensor data.
+- Built and applied ML and deep learning models for computer vision, including YOLOv5, CNNs, autoencoders, SVMs, and unsupervised clustering with DBSCAN.
+- Designed a cloud-based ML pipeline for scalable data ingestion, training, and inference to streamline processing and analysis.
+- Worked directly with industrial vision hardware (cameras, light controllers, laser profilers) for data capture and validation.
+- Delivered advanced image-processing and inspection workflows using industrial machine vision software.
+- Processed 3D sensor data and reconstructed 3D objects to support measurement and quality checks.
+- **Skills:** CNN, Object Tracking, Camera Calibration, YOLO, Anomaly Detection, Object Detection, Computer Vision, Creative Problem Solving
 
-## Intern Electrical and Electronic Engineer
-**Organisation:** Dialog Axiata PLC  
-**Period:** Nov 2019 – Jan 2020  
-**Location:** Colombo, Sri Lanka  
-
-- Learned modulation techniques used in wireless communication.
-- Observed 5G implementation in the Colombo area.
+## Trainee – Electrical and Telecommunications
+**Organisation:** Dialog Axiata PLC (Internship)  
+**Period:** Dec 2019 – Feb 2020 (3 mos)  
+**Location:** Colombo (On-site)
