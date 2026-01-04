@@ -14,3 +14,40 @@
 ## Actions
 - Send Mails
 - Schedule Meetings
+
+
+digital_brain/
+│
+├── profile/
+│   ├── profile.yaml
+│   └── quick_facts.md
+│
+├── resume/
+│   ├── resume.metadata.yaml
+│   ├── experience.md
+│   ├── education.md
+│   ├── skills.mdForm my CV 
+│   ├── awards.md
+│   └── projects.md
+│
+├── research/
+│   ├── paper_2023_lidar_calibration/
+│   │   ├── metadata.yaml
+│   │   ├── abstract.md
+│   │   ├── method.md
+│   │   ├── results.md
+│   │   ├── conclusion.md
+│   │   └── references.md
+│   │
+│   ├── paper_2024_timestamp_correction/
+│   │   ├── metadata.yaml
+│   │   ├── full_paper.md
+│   │   └── figures.md
+│
+├── sources/
+│   ├── pdfs/
+│   ├── links.yaml
+│   └── citations.bib
+│
+│
+└── changelog.md

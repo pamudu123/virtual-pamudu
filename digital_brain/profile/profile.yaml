@@ -1,0 +1,32 @@
+id: profile_pamudu_ranasinghe
+name: Pamudu Ranasinghe
+timezone: Asia/Colombo
+
+current_roles:
+  - Lead AI Engineer, CreditSource
+  - MSc Candidate (Data Science & AI), University of Moratuwa
+
+primary_focus:
+  - natural language processing
+  - computer vision
+  - audio signal analysis
+  - embedded machine learning
+  - agentic RAG and evaluation
+
+short_bio: >
+  Lead AI Engineer building applied ML systems across NLP, computer vision,
+  and audio/embedded ML, with experience delivering production solutions and
+  research outputs.
+
+location:
+  primary: Sri Lanka
+  secondary: Australia
+
+links:
+  linkedin: ""
+  github: ""
+  youtube: ""
+  google_scholar: ""
+
+last_updated: 2026-01-03
+confidence: high

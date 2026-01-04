@@ -1,0 +1,22 @@
+# The "Quick Access" Map
+# Keys: Concepts the Agent might look for
+# Values: The specific Markdown/YAML file path (relative to digital_brain/)
+
+# -- Personal Bio --
+bio: "profile/quick_facts.md"
+profile: "profile/profile.yaml"
+contact: "profile/profile.yaml"
+
+# -- Resume Sections --
+resume: "resume/experience.md"
+experience: "resume/experience.md"
+education: "resume/education.md"
+skills: "resume/skills.md"
+awards: "resume/awards.md"
+projects: "resume/projects.md"
+
+# -- Placeholders (add these files later if needed) --
+# current_project: "projects/vehicle_tracker.md"
+# doorseal: "projects/doorseal_app.md"
+# thesis: "research/paper_2024_timestamp_correction/full_paper.md"
+# lidar: "research/paper_2023_lidar_calibration/metadata.yaml"
