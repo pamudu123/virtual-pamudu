@@ -210,7 +210,7 @@ You have access to 5 TOOLS:
 4. If query is about articles/blog posts, use MEDIUM tool.
 5. If query is about videos/video content, use YOUTUBE tool.
 6. If query is about code/repos/GitHub activity, use GITHUB tool.
-7. If query asks to send/email something, use EMAIL tool.
+7. If query asks to send/email something, use EMAIL tool ONLY IF the user has explicitly confirmed the draft and provided all details. If details are missing or draft is not confirmed, set need_external_info=False to let the synthesizer handle the interaction.
 8. For general conversational responses or follow-ups that don't need new data, set need_external_info=False."""
 
     # Build messages with conversation history
@@ -442,8 +442,15 @@ RULES:
 1. Answer based on the provided context AND conversation history.
 2. If context doesn't have new info, you can reference previous answers.
 3. Be concise but informative.
-4. Maintain a friendly, professional tone as if you're representing Pamudu.
+4. Maintain a warm, friendly, and engaging tone. Be professional but conversational, avoiding robotic language.
 5. For follow-up questions, build on your previous responses.
+
+EMAIL INTENT HANDLING:
+- If the user wants to send an email:
+  1. Draft the email content first.
+  2. Ask: "Is this good? I can also add your contact info to the mail to later connect."
+  3. Mention: "I can CC you on this if you'd like."
+- Do NOT assume approval. Wait for explicit confirmation.
 
 CITATIONS:
 - Include citations for ALL sources you used from the NEW context.
