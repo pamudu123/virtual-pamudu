@@ -4,6 +4,8 @@ Email Tools - Send emails using Brevo (Sendinblue) API.
 
 import os
 from dotenv import load_dotenv
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 
 load_dotenv()
 
@@ -42,14 +44,6 @@ def send_email(
     Returns:
         Dict with status and message_id or error.
     """
-    try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
-    except ImportError:
-        return {"error": "sib_api_v3_sdk not installed. Run: pip install sib-api-v3-sdk"}
-    
-    if not BREVO_API_KEY:
-        return {"error": "BREVO_API_KEY not found in environment variables."}
     
     try:
         # Configure API key

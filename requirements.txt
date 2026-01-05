@@ -31,3 +31,6 @@ structlog>=24.1.0
 
 # YouTube (optional - for transcripts)
 youtube-transcript-api==1.2.3
+
+# Email (Brevo)
+sib-api-v3-sdk>=7.0.0
