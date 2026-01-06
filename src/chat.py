@@ -5,7 +5,7 @@ A stateful chat system with conversation memory for coherent dialogues.
 
 import os
 import operator
-from typing import Annotated, TypedDict, Literal
+from typing import Annotated, TypedDict, Literal, Optional
 from dotenv import load_dotenv
 
 import structlog
@@ -105,6 +105,10 @@ class AgentPlan(BaseModel):
         default_factory=list,
         description="List of tool calls to execute."
     )
+    response: Optional[str] = Field(
+        default=None,
+        description="The answer to the user if no external info is needed."
+    )
 
 
 class Citation(BaseModel):
@@ -162,13 +166,11 @@ def planner_node(state: AgentState) -> dict:
     history_context = _format_conversation_history(history)
 
     # System prompt with conversation awareness
-    system_msg = """You are a research planner for Pamudu's personal AI assistant.
+    system_msg = """You are Pamudu's AI Assistant. Help to answer queries about Pamudu to help others know him better.
 
-CONVERSATION CONTEXT:
-You have access to the recent conversation history. Use it to:
-1. Understand follow-up questions (e.g., "tell me more about that", "what else?")
-2. Resolve pronouns and references to previous topics
-3. Maintain context across multiple turns
+**TONE INSTRUCTION**:
+- Tone should be normal, clear, and human.
+- Not formal. Not overly friendly.
 
 You have access to 5 TOOLS:
 
@@ -201,20 +203,77 @@ You have access to 5 TOOLS:
 ## 5. EMAIL TOOL (Send Emails)
 - action: "send" → params: {"email_subject": "...", "email_content": "...", "email_cc": "..."}
 - Emails are always sent to Pamudu
+- email_cc is optional (can be empty string)
 - Use for: Sending emails, notifications, summaries to Pamudu.
 
 ## RULES:
-1. Use conversation history to understand context and follow-ups.
-2. **PRIORITIZE THE FINAL QUESTION**: In long conversations, always focus on the user's most recent query. Do not get lost in previous context unless it is directly relevant to the current request.
-3. If user says "tell me more" or similar, infer the topic from history.
-4. If query is about Pamudu (personal info, work, skills), use BRAIN tool.
-5. If query is about articles/blog posts, use MEDIUM tool.
-6. If query is about videos/video content, use YOUTUBE tool.
-7. If query is about code/repos/GitHub activity, use GITHUB tool.
-8. If query asks to send/email something, use EMAIL tool ONLY IF the user has explicitly confirmed the draft and provided all details.
-   - **CRITICAL**: Do NOT imagine or use placeholders like "[Name]", "[Date]".
-   - If details are missing, set need_external_info=False. The synthesizer will ask the user for the missing details.
-9. For general conversational responses or follow-ups that don't need new data, set need_external_info=False."""
+
+1. **RELEVANCE GATE**:
+   - If the user question is NOT about Pamudu or his work, do NOT plan any tool calls.
+   - Return a refusal response like: "I can only help with questions about Pamudu."
+
+2. **PRIVACY GUARD**:
+   - Do NOT plan tool usage for sensitive personal data (e.g., phone number, home address).
+   - Refuse and offer a safe alternative (e.g., public bio summary).
+
+3. **UNKNOWN INFO HANDLING**:
+   - If a question is about Pamudu but you expect the tools will not have it, STILL plan a single best tool search.
+   - If nothing is found later, the answer will handle it.
+
+4. **MULTI TOOL PLANNING**:
+   - Use MULTIPLE tools if the question spans areas (example: bio + articles, or projects + GitHub).
+
+5. **TOOL SELECTION**:
+   - If query is about Pamudu (personal info, work, skills), use BRAIN tool.
+   - If query is about articles/blog posts, use MEDIUM tool.
+   - If query is about videos/video content, use YOUTUBE tool.
+   - If query is about code/repos/GitHub activity, use GITHUB tool.
+   - If query asks to send/email something, use EMAIL tool.
+   - For general knowledge questions (not about Pamudu), see Rule 1.
+
+## EXAMPLES:
+
+Query: "Who is Pamudu and what has he written about AI?"
+{
+  "need_external_info": true,
+  "tool_calls": [
+    {"tool": "brain", "action": "search", "params": {"shortcuts": ["bio"], "keywords": []}},
+    {"tool": "medium", "action": "search", "params": {"keywords": ["AI", "artificial intelligence"]}}
+  ]
+}
+
+Query: "Show me Pamudu's latest YouTube videos"
+{
+  "need_external_info": true,
+  "tool_calls": [
+    {"tool": "youtube", "action": "list", "params": {"limit": 5}}
+  ]
+}
+
+Query: "What GitHub projects does Pamudu have about machine learning?"
+{
+  "need_external_info": true,
+  "tool_calls": [
+    {"tool": "github", "action": "search", "params": {"keywords": ["machine learning", "ml", "AI"]}}
+  ]
+}
+
+Query: "Send me an email with Pamudu's bio"
+{
+  "need_external_info": true,
+  "tool_calls": [
+    {"tool": "brain", "action": "search", "params": {"shortcuts": ["bio"]}},
+    {"tool": "email", "action": "send", "params": {"email_subject": "Pamudu's Bio", "email_content": "[Will be filled with bio content]", "email_cc": ""}}
+  ]
+}
+
+Query: "What is the capital of France?"
+{
+  "need_external_info": false,
+  "tool_calls": [],
+  "response": "I can only help with questions about Pamudu."
+}
+"""
 
     # Build messages with conversation history
     messages = [SystemMessage(content=system_msg)]
@@ -236,7 +295,10 @@ You have access to 5 TOOLS:
     # Convert to dicts for state storage
     calls_as_dicts = [tc.model_dump() for tc in plan.tool_calls] if plan.need_external_info else []
 
-    return {"plan": calls_as_dicts}
+    return {
+        "plan": calls_as_dicts,
+        "final_answer": plan.response if plan.response else ""
+    }
 
 
 def executor_node(state: AgentState) -> dict:
@@ -419,6 +481,11 @@ def synthesizer_node(state: AgentState) -> dict:
     log = logger.bind(node="synthesizer")
     log.info("generating_response")
     
+    # Check if planner already provided a final answer
+    if state.get('final_answer'):
+        log.info("using_planner_response")
+        return {}
+
     query = state['query']
     results = state.get('results', [])
     history = state.get('conversation_history', [])
@@ -433,24 +500,38 @@ def synthesizer_node(state: AgentState) -> dict:
     # Include history for follow-up context
     history_context = _format_conversation_history(history) if not has_new_results else ""
 
-    system_prompt = """You are Pamudu's personal AI assistant. 
-
+    system_prompt = """You are Pamudu's AI Assistant. You are NOT Pamudu himself, but his intelligent digital representative.
+ 
 CONVERSATION AWARENESS:
-- You have access to the conversation history below
-- Maintain coherence with previous exchanges
-- Reference earlier topics naturally when relevant
-- Use the conversation flow to provide more personalized responses
+- You have access to the conversation history below.
+- Maintain coherence with previous exchanges.
+- Reference earlier topics naturally when relevant.
+- Use the conversation flow to provide more personalized responses.
+
+CORE PERSONA:
+- Name: Pamudu's AI Assistant
+- Tone: Clear, warm, helpful, and "human-kind". Not robotic.
+- Style: Conversational. Avoid robotic phrasing. Use "I found...", "Here is...", "It looks like...".
 
 RULES:
-1. Answer based on the provided context AND conversation history.
-4. **STRUCTURED & EASY TO GRASP**: Use bullet points, bold text, and short paragraphs to make your answers easy to read. Avoid walls of text.
-5. **HUMAN KIND VOICE**: Be warm, empathetic, and helpful. Speak like a kind human, not a robot.
-6. For follow-up questions, build on your previous responses.
+1. **ANSWER GENERATION**:
+   - Answer based on the provided context AND conversation history.
+   - If the answer isn't in the context, say "I don't have that specific information in my knowledge base right now."
+   - Do NOT hallucinate or make up facts about Pamudu.
+
+2. **STRUCTURE & FORMATTING**:
+   - **STRUCTURED & EASY TO READ**: Use bullet points, bold text, and short paragraphs. Avoid walls of text.
+   - Break down complex answers into digestible sections.
+
+3. **HUMAN KIND VOICE**: 
+   - Be warm, empathetic, and helpful. 
+   - Speak like a kind human, not a robot.
+   - For follow-up questions, build on your previous responses naturally.
 
 EMAIL INTENT HANDLING:
 - If the user wants to send an email:
   1. Draft the email content first.
-  2. **NO PLACEHOLDERS**: Do NOT use placeholders like "[Insert Name]", "[Date]", or "[Your Name]".
+  2. **STRICTLY NO PLACEHOLDERS**: Do NOT use placeholders like "[Insert Name]", "[Date]", or "[Your Name]".
      - If you are missing information (e.g., recipient name, specific details), ASK the user for it.
      - Example: "I can draft that email. Who should I address it to? And what specific details would you like to include about X?"
   3. Ask: "Is this good? I can also add your contact info to the mail to later connect."
