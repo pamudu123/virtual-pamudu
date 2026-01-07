@@ -27,7 +27,7 @@ from tools.github_tools import (
     list_my_repos, search_repos, get_repo_readme, 
     get_file_content, search_and_read_repo
 )
-from tools.mail_tool import send_simple_email
+from tools.mail_tool import send_email, send_simple_email
 
 load_dotenv()
 
@@ -77,6 +77,7 @@ class ToolParams(BaseModel):
     video_id: str = Field(default="", description="YouTube video ID.")
     state: str = Field(default="open", description="PR state: open, closed, all.")
     # Email params
+    email_to: str = Field(default="", description="Recipient email address.")
     email_subject: str = Field(default="", description="Email subject line.")
     email_content: str = Field(default="", description="Email body content.")
     email_cc: str = Field(default="", description="CC email address (optional).")
@@ -201,10 +202,12 @@ You have access to 5 TOOLS:
 - Use for: Pamudu's GitHub projects, code, repositories.
 
 ## 5. EMAIL TOOL (Send Emails)
-- action: "send" → params: {"email_subject": "...", "email_content": "...", "email_cc": "..."}
-- Emails are always sent to Pamudu
-- email_cc is optional (can be empty string)
-- Use for: Sending emails, notifications, summaries to Pamudu.
+- action: "send" → params: {"email_to": "...", "email_subject": "...", "email_content": "...", "email_cc": "..."}
+- Use for: Sending emails. 
+- **CRITICAL PROTOCOL**:
+  - **STEP 1**: User asks to send email. -> Plan: `need_external_info: false` (Synthesizer will ask for details).
+  - **STEP 2**: User provides details (To, Subject, Body). -> Plan: `need_external_info: false` (Synthesizer will draft).
+  - **STEP 3**: User says "Yes/Send" to the DRAFT. -> Plan: `tool: email, action: send`.
 
 ## RULES:
 
@@ -219,54 +222,45 @@ You have access to 5 TOOLS:
    - Do NOT plan tool usage for sensitive personal data (e.g., phone number, home address).
    - Refuse and offer a safe alternative (e.g., public bio summary).
 
-3. **UNKNOWN INFO HANDLING**:
+3. **EMAIL SAFETY**:
+   - **NEVER** plan an email 'send' action in the same turn the user asks to send it.
+   - **ALWAYS** check: Has the user explicitly seen the draft and said "Yes"?
+   - If "No" or "Not sure" -> do NOT plan 'email' tool.
+   - If User just gave details -> do NOT plan 'email' tool (Output draft first).
+
+4. **UNKNOWN INFO HANDLING**:
    - If a question is about Pamudu but you expect the tools will not have it, STILL plan a single best tool search.
    - If nothing is found later, the answer will handle it.
 
-4. **MULTI TOOL PLANNING**:
+5. **MULTI TOOL PLANNING**:
    - Use MULTIPLE tools if the question spans areas (example: bio + articles, or projects + GitHub).
 
-5. **TOOL SELECTION**:
+6. **TOOL SELECTION**:
    - If query is about Pamudu (personal info, work, skills), use BRAIN tool.
    - If query is about articles/blog posts, use MEDIUM tool.
    - If query is about videos/video content, use YOUTUBE tool.
    - If query is about code/repos/GitHub activity, use GITHUB tool.
-   - If query asks to send/email something, use EMAIL tool.
-   - For general knowledge questions, see Rule 1.
+   - If query is to SEND EMAIL (and draft was approved), use EMAIL tool.
 
 ## EXAMPLES:
 
-Query: "Who is Pamudu and what has he written about AI?"
+Query: "Send an email to John"
 {
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "brain", "action": "search", "params": {"shortcuts": ["bio"], "keywords": []}},
-    {"tool": "medium", "action": "search", "params": {"keywords": ["AI", "artificial intelligence"]}}
-  ]
+  "need_external_info": false,
+  "response": "I can help. What's John's email address and what should the subject and body be?"
 }
 
-Query: "Show me Pamudu's latest YouTube videos"
+Query: "Email is john@example.com, Subject: Hi, Body: Test."
 {
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "youtube", "action": "list", "params": {"limit": 5}}
-  ]
+  "need_external_info": false,
+  "response": "Here is the draft..."
 }
 
-Query: "What GitHub projects does Pamudu have about machine learning?"
+Query: "The draft looks good. Send it." (History shows draft was presented)
 {
   "need_external_info": true,
   "tool_calls": [
-    {"tool": "github", "action": "search", "params": {"keywords": ["machine learning", "ml", "AI"]}}
-  ]
-}
-
-Query: "Send me an email with Pamudu's bio"
-{
-  "need_external_info": true,
-  "tool_calls": [
-    {"tool": "brain", "action": "search", "params": {"shortcuts": ["bio"]}},
-    {"tool": "email", "action": "send", "params": {"email_subject": "Pamudu's Bio", "email_content": "[Will be filled with bio content]", "email_cc": ""}}
+    {"tool": "email", "action": "send", "params": {"email_to": "john@example.com", "email_subject": "Hi", "email_content": "Test", "email_cc": ""}}
   ]
 }
 
@@ -445,6 +439,7 @@ def executor_node(state: AgentState) -> dict:
             # --- EMAIL TOOL ---
             elif tool == 'email':
                 if action == 'send':
+                    email_to = params.get('email_to', '')
                     subject = params.get('email_subject', 'Message from Virtual Pamudu')
                     content = params.get('email_content', '')
                     cc_email = params.get('email_cc', '') or None
@@ -453,16 +448,21 @@ def executor_node(state: AgentState) -> dict:
                     if not content or '[Will be filled' in content:
                         content = "\n".join(results) if results else "No content available."
                     
-                    data = send_simple_email(
-                        subject=subject,
-                        message=content,
-                        cc_email=cc_email
-                    )
-                    
-                    if data.get('success'):
-                        results.append(f"--- EMAIL: Sent successfully ---\nSubject: {subject}\nMessage ID: {data.get('message_id')}\n")
+                    if not email_to:
+                        results.append(f"--- EMAIL: Failed to send ---\nError: No 'to_email' specified.\n")
                     else:
-                        results.append(f"--- EMAIL: Failed to send ---\nError: {data.get('error')}\n")
+                        data = send_email(
+                            to_email=email_to,
+                            subject=subject,
+                            content=content,
+                            cc_email=cc_email,
+                            is_html=True
+                        )
+                        
+                        if data.get('success'):
+                            results.append(f"--- EMAIL: Sent successfully ---\nTo: {email_to}\nSubject: {subject}\nMessage ID: {data.get('message_id')}\n")
+                        else:
+                            results.append(f"--- EMAIL: Failed to send ---\nError: {data.get('error')}\n")
 
             else:
                 log.error("unknown_tool", tool=tool)
@@ -532,14 +532,22 @@ RULES:
    - For follow-up questions, build on your previous responses naturally.
 
 EMAIL INTENT HANDLING:
-- If the user wants to send an email:
-  1. Draft the email content first.
-  2. **STRICTLY NO PLACEHOLDERS**: Do NOT use placeholders like "[Insert Name]", "[Date]", or "[Your Name]".
-     - If you are missing information (e.g., recipient name, specific details), ASK the user for it.
-     - Example: "I can draft that email. Who should I address it to? And what specific details would you like to include about X?"
-  3. Ask: "Is this good? I can also add your contact info to the mail to later connect."
-  4. Mention: "I can CC you on this if you'd like."
-- Do NOT assume approval. Wait for explicit confirmation.
+- **STEP 1: GATHER**: If the user wants to send an email, first checks if you have ALL details:
+  - Recipient Email (To) - ASK if missing.
+  - Subject - ASK if missing.
+  - Body Content - ASK if missing.
+  - CC (Optional) - Ask if they want to CC anyone.
+- **STEP 2: DRAFT**: Once you have the details, present a clear DRAFT.
+  - Use a code block or clear separator for the draft.
+  - Example:
+    ```
+    To: user@example.com
+    Subject: Hello
+    Body: ...
+    ```
+  - ASK: "Does this draft look correct? Should I send it?"
+- **STEP 3: SEND**: ONLY if the user says "Yes" or "Send it" to the draft, then assume the plan has handled it.
+- **STRICT PROTOCOL**: Do NOT assume approval. Wait for explicit confirmation.
 
 CITATIONS:
 - Include citations for ALL sources you used from the NEW context.
