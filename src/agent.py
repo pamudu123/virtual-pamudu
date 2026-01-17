@@ -1,7 +1,9 @@
 import os
 import operator
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, Literal, Union
 from dotenv import load_dotenv
+
+import operator
 
 # LangGraph Imports
 from langgraph.graph import StateGraph, END
@@ -48,8 +50,8 @@ def get_llm():
 
 
 # We use Pydantic to force the LLM to return a structured Plan
-class ToolParams(BaseModel):
-    """Parameters for a tool call."""
+class SearchParams(BaseModel):
+    """Parameters for search/retrieval tools (brain, medium, youtube, github)."""
     shortcuts: list[ShortcutKey] = Field(default_factory=list, description=f"Brain shortcuts: {', '.join(SHORTCUT_KEYS)}.")
     keywords: list[str] = Field(default_factory=list, description="Search keywords.")
     limit: int = Field(default=5, description="Max results to return.")
@@ -58,9 +60,12 @@ class ToolParams(BaseModel):
     article_link: str = Field(default="", description="Medium article URL.")
     video_id: str = Field(default="", description="YouTube video ID.")
     state: str = Field(default="open", description="PR state: open, closed, all.")
-    # Email params
-    email_subject: str = Field(default="", description="Email subject line.")
-    email_content: str = Field(default="", description="Email body content.")
+
+
+class EmailParams(BaseModel):
+    """Parameters for sending an email."""
+    email_subject: str = Field(description="Email subject line.")
+    email_content: str = Field(description="Email body content.")
     email_cc: str = Field(default="", description="CC email address (optional).")
 
 
@@ -72,9 +77,8 @@ class ToolCall(BaseModel):
     action: str = Field(
         description="The specific action: 'search', 'list', 'get_content', 'get_status', 'get_transcript', 'get_readme', 'list_prs', 'check_reviews', 'send'."
     )
-    params: ToolParams = Field(
-        default_factory=ToolParams,
-        description="Parameters for the tool call."
+    params: Union[SearchParams, EmailParams] = Field(
+        description="Parameters for the tool call. Use EmailParams for 'email' tool, SearchParams for others."
     )
 
 

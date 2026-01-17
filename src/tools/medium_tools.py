@@ -4,8 +4,13 @@ Medium Tools - Fetch articles and content from Medium RSS feed.
 
 import feedparser
 import json
+import warnings
 from curl_cffi import requests
-from newspaper import Article
+
+# Suppress SyntaxWarning from newspaper3k (invalid escape sequences in Python 3.12+)
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=SyntaxWarning)
+    from newspaper import Article
 
 # --- CONFIGURATION ---
 USERNAME = "pamudu1111"
