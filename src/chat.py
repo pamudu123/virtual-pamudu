@@ -730,9 +730,17 @@ class ChatSession:
         # 2. Iterate through Graph Steps
         for output in app.stream(inputs):
             for node_name, state_update in output.items():
+                # Guard against None state_update
+                if state_update is None:
+                    state_update = {}
                 
                 if node_name == "planner":
                     plan = state_update.get("plan", [])
+                    # Capture final_answer if planner provides it directly
+                    planner_answer = state_update.get("final_answer", "")
+                    if planner_answer:
+                        final_answer = planner_answer
+                    
                     if plan:
                         tool_names = [t.get('tool') for t in plan]
                         actions = [t.get('action') for t in plan]
@@ -758,8 +766,13 @@ class ChatSession:
                     yield {"type": "status", "node": "synthesizer", "message": "✍️ Drafting response..."}
                     
                 elif node_name == "synthesizer":
-                    final_answer = state_update.get("final_answer", "")
+                    # Synthesizer may return empty dict if using planner response
+                    synth_answer = state_update.get("final_answer", "")
                     citations = state_update.get("citations", [])
+                    
+                    # Use synthesizer answer if available, otherwise use captured planner answer
+                    if synth_answer:
+                        final_answer = synth_answer
                     
                     # Final Result
                     yield {
