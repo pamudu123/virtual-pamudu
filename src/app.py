@@ -96,6 +96,7 @@ class FirebaseChatSession:
             Dict with 'answer', 'citations', 'turn_count'
         """
         self.log.info("processing_message", message_length=len(user_message))
+        self.log.info("user_input", message=user_message)
         
         # Load conversation history from Firebase
         messages = self.firebase.get_messages(self.session_id)
@@ -124,6 +125,7 @@ class FirebaseChatSession:
         turn_count = len(updated_messages) // 2
         
         self.log.info("message_processed", turn_count=turn_count)
+        self.log.info("assistant_output", answer=answer[:500] if len(answer) > 500 else answer)
         
         return {
             "turn_count": turn_count
@@ -135,6 +137,7 @@ class FirebaseChatSession:
         Yields events: status, result
         """
         self.log.info("processing_message_stream")
+        self.log.info("user_input", message=user_message)
         
         # Load conversation history from Firebase
         messages = self.firebase.get_messages(self.session_id)
@@ -163,6 +166,7 @@ class FirebaseChatSession:
         if final_answer:
             self.firebase.add_turn(self.session_id, user_message, final_answer)
             self.log.info("message_processed_stream_saved")
+            self.log.info("assistant_output", answer=final_answer[:500] if len(final_answer) > 500 else final_answer)
 
 
 # --- APP LIFESPAN ---
