@@ -3,6 +3,10 @@ Virtual Pamudu Chat API - FastAPI Implementation
 RESTful API for the chat agent with Firebase Firestore persistence.
 """
 
+# MUST be at the very top - suppress SyntaxWarnings from newspaper3k library
+import warnings
+warnings.filterwarnings("ignore", category=SyntaxWarning, module="newspaper")
+
 import os
 import sys
 from typing import Optional

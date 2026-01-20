@@ -102,6 +102,30 @@ data: {"type": "result", "answer": "...", "citations": [...]}
 
 ---
 
+## 🧪 Testing
+
+This project uses `pytest` for testing.
+
+1.  **Run all tests:**
+    ```bash
+    pytest tests/
+    ```
+
+2.  **Run specific tests:**
+    ```bash
+    pytest tests/test_planner.py  # Test logic and tool selection
+    pytest tests/test_tools.py    # Test individual tool functions
+    ```
+
+3.  **See Model Answers:**
+    To see the model's inputs and answers during testing, use the `-s` flag:
+    ```bash
+    pytest -s tests/test_planner.py
+    ```
+
+---
+
+
 ## ☁️ Deployment (Vercel)
 
 This project is configured for serverless deployment on **Vercel**.
