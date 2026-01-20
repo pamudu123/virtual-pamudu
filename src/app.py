@@ -128,6 +128,8 @@ class FirebaseChatSession:
         self.log.info("assistant_output", answer=answer[:500] if len(answer) > 500 else answer)
         
         return {
+            "answer": answer,
+            "citations": citations,
             "turn_count": turn_count
         }
 
