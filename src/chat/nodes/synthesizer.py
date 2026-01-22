@@ -65,7 +65,13 @@ CITATIONS:
 - Extract the source_type from the context header (BRAIN, GITHUB, MEDIUM, YOUTUBE).
 - Extract the source_name (file path, repo name, article title, video title).
 - Extract the URL if present in the context.
-- Only include citations for sources you actually referenced in your answer."""
+- Only include citations for sources you actually referenced in your answer.
+
+SUGGESTED QUESTIONS:
+- Generate exactly 3 short follow-up questions the user might want to ask.
+- Questions should be SHORT (under 10 words each) and conversational.
+- Questions should be relevant to the current topic and Pamudu.
+- Examples: "What projects has he built?", "Tell me about his skills", "Any recent blog posts?""""
 
 
 def _format_conversation_history(history: list[dict]) -> str:
@@ -128,7 +134,8 @@ def synthesizer_node(state: AgentState) -> dict:
         log.info("generated_simple_response")
         return {
             "final_answer": response.content,
-            "citations": []
+            "citations": [],
+            "suggested_questions": []
         }
     
     # Full structured output for responses with citations
@@ -144,5 +151,6 @@ def synthesizer_node(state: AgentState) -> dict:
     
     return {
         "final_answer": response.answer,
-        "citations": citations_as_dicts
+        "citations": citations_as_dicts,
+        "suggested_questions": response.suggested_questions
     }

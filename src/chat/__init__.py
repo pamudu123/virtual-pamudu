@@ -28,7 +28,7 @@ from .nodes import planner_node, executor_node, synthesizer_node
 from .graph import app, should_search
 
 # Re-export session
-from .session import ChatSession
+from .session import ChatSession, get_initial_suggestions, INITIAL_SUGGESTIONS
 
 # Re-export CLI
 from .cli import start_chat
@@ -55,6 +55,8 @@ __all__ = [
     "should_search",
     # Session
     "ChatSession",
+    "get_initial_suggestions",
+    "INITIAL_SUGGESTIONS",
     # CLI
     "start_chat",
 ]

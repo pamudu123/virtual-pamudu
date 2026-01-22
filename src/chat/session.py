@@ -36,12 +36,14 @@ class ChatSession:
             "query": user_message,
             "conversation_history": self.conversation_history.copy(),
             "results": [],
-            "citations": []
+            "citations": [],
+            "suggested_questions": []
         }
         result = app.invoke(inputs)
         
         answer = result.get('final_answer', 'No response generated.')
         citations = result.get('citations', [])
+        suggested_questions = result.get('suggested_questions', [])
         
         # Update conversation history (no limit)
         self.conversation_history.append({"role": "user", "content": user_message})
@@ -52,6 +54,7 @@ class ChatSession:
         return {
             "answer": answer,
             "citations": citations,
+            "suggested_questions": suggested_questions,
             "history_length": len(self.conversation_history) // 2  # Number of turns
         }
     
@@ -67,7 +70,8 @@ class ChatSession:
             "query": user_message,
             "conversation_history": self.conversation_history.copy(),
             "results": [],
-            "citations": []
+            "citations": [],
+            "suggested_questions": []
         }
         
         final_answer = ""
@@ -117,6 +121,7 @@ class ChatSession:
                     # Synthesizer may return empty dict if using planner response
                     synth_answer = state_update.get("final_answer", "")
                     citations = state_update.get("citations", [])
+                    suggested_questions = state_update.get("suggested_questions", [])
                     
                     # Use synthesizer answer if available, otherwise use captured planner answer
                     if synth_answer:
@@ -127,6 +132,7 @@ class ChatSession:
                         "type": "result",
                         "answer": final_answer,
                         "citations": citations,
+                        "suggested_questions": suggested_questions,
                         "history_length": len(self.conversation_history) // 2 + 1
                     }
                     
@@ -144,3 +150,16 @@ class ChatSession:
     def get_history(self) -> list[dict]:
         """Get the current conversation history."""
         return self.conversation_history.copy()
+
+
+# Initial suggestions for the UI before any conversation
+INITIAL_SUGGESTIONS = [
+    "Who is Pamudu?",
+    "What are Pamudu's skills?",
+    "Show me Pamudu's projects"
+]
+
+
+def get_initial_suggestions() -> list[str]:
+    """Get initial starter suggestions to display in UI."""
+    return INITIAL_SUGGESTIONS.copy()

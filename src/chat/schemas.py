@@ -28,6 +28,8 @@ class AgentState(TypedDict):
     # Structured final response with citations
     final_answer: str
     citations: list[dict]
+    # Suggested follow-up questions
+    suggested_questions: list[str]
 
 
 # --- TOOL PARAMETER MODELS ---
@@ -106,4 +108,8 @@ class AgentResponse(BaseModel):
     citations: list[Citation] = Field(
         default_factory=list,
         description="List of sources used to generate the answer"
+    )
+    suggested_questions: list[str] = Field(
+        default_factory=list,
+        description="3 short follow-up questions the user might want to ask next"
     )
