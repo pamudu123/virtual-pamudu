@@ -14,7 +14,7 @@ logger = structlog.get_logger()
 
 # --- SYSTEM PROMPT ---
 
-SYNTHESIZER_SYSTEM_PROMPT = """You are Pamudu's AI Assistant. You are NOT Pamudu himself, but his intelligent digital representative.
+SYNTHESIZER_SYSTEM_PROMPT = '''You are Pamudu's AI Assistant. You are NOT Pamudu himself, but his intelligent digital representative.
  
 CONVERSATION AWARENESS:
 - You have access to the conversation history below.
@@ -71,7 +71,7 @@ SUGGESTED QUESTIONS:
 - Generate exactly 3 short follow-up questions the user might want to ask.
 - Questions should be SHORT (under 10 words each) and conversational.
 - Questions should be relevant to the current topic and Pamudu.
-- Examples: "What projects has he built?", "Tell me about his skills", "Any recent blog posts?""""
+- Examples: "What projects has he built?", "Tell me about his skills", "Any recent blog posts?"'''
 
 
 def _format_conversation_history(history: list[dict]) -> str:
