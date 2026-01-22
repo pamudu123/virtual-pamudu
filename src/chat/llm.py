@@ -16,14 +16,8 @@ def get_llm():
     """
     api_key = os.getenv("OPENROUTER_API_KEY")
     return ChatOpenAI(
-        model="openai/gpt-oss-120b", 
+        model="x-ai/grok-4.1-fast", 
         temperature=0,
         api_key=api_key,
-        base_url="https://openrouter.ai/api/v1",
-        extra_body={
-            "provider": {
-                "order": ["DeepInfra"],
-                "allow_fallbacks": True
-            }
-        }
+        base_url="https://openrouter.ai/api/v1"
     )
