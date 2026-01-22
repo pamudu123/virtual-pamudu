@@ -16,7 +16,7 @@ def get_llm():
     """
     api_key = os.getenv("OPENROUTER_API_KEY")
     return ChatOpenAI(
-        model="x-ai/grok-4.1-fast", 
+        model="google/gemini-3-flash-preview", 
         temperature=0,
         api_key=api_key,
         base_url="https://openrouter.ai/api/v1"
