@@ -4,7 +4,7 @@ from chat import planner_node, AgentState, AgentPlan, ToolCall, SearchParams, Em
 
 @pytest.fixture
 def mock_planner_llm():
-    with patch('chat.get_llm') as mock_get_llm:
+    with patch('chat.nodes.planner.get_llm') as mock_get_llm:
         mock_model = MagicMock()
         mock_get_llm.return_value = mock_model
         
