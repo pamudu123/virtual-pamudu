@@ -37,5 +37,12 @@ Thumbs.db
 *.log
 
 mcp.json
-digital_brain/sources
+api/digital_brain/sources
 virtual-assistant-firebase-adminsdk-1.json
+# Node / Next.js
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Local tooling
+.claude/

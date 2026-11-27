@@ -1,9 +1,0 @@
-env
-.env
-__pycache__
-*.pyc
-virtual-assistant-firebase-adminsdk-*.json
-experiments/
-brain/
-.git/
-.vscode/

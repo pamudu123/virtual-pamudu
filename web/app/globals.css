@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* One light theme on purpose: the CopilotKit chat surface is light, and the
+   cards rendered inside it must match it. Tokens are prefixed so they cannot
+   collide with the variables CopilotKit's own stylesheet defines. */
+:root {
+  color-scheme: light;
+  --vp-ink: #14161f;
+  --vp-muted: #5f6577;
+  --vp-line: #e4e6ee;
+  --vp-surface: #ffffff;
+  --vp-surface-2: #f5f6fa;
+  --vp-accent: #4338ca;
+  --vp-accent-soft: #eceafd;
+}
+
+@theme inline {
+  --color-vp-ink: var(--vp-ink);
+  --color-vp-muted: var(--vp-muted);
+  --color-vp-line: var(--vp-line);
+  --color-vp-surface: var(--vp-surface);
+  --color-vp-surface-2: var(--vp-surface-2);
+  --color-vp-accent: var(--vp-accent);
+  --color-vp-accent-soft: var(--vp-accent-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--vp-surface-2);
+  color: var(--vp-ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}

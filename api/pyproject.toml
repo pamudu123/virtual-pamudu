@@ -1,0 +1,30 @@
+[project]
+name = "virtual-pamudu-api"
+version = "2.0.0"
+description = "Virtual Pamudu: deep agent served over AG-UI"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "deepagents>=0.7.42",
+    "copilotkit>=0.1.97",
+    "ag-ui-langgraph[fastapi]>=0.0.48",
+    "langchain-openrouter",
+    "langgraph-checkpoint-postgres",
+    "psycopg[binary,pool]",
+    "fastapi",
+    "uvicorn[standard]",
+    "python-dotenv",
+    "pyyaml",
+    "PyGithub>=2.1.1",
+    "httpx",
+    "feedparser",
+    "beautifulsoup4",
+    "youtube-transcript-api",
+    "sib-api-v3-sdk",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

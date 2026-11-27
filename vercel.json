@@ -1,14 +1,20 @@
 {
-    "builds": [
+  "services": {
+    "web": {
+      "root": "web",
+      "bindings": [
         {
-            "src": "src/app.py",
-            "use": "@vercel/python"
+          "type": "service",
+          "service": "api",
+          "format": "url",
+          "env": "AGENT_INTERNAL_URL"
         }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "src/app.py"
-        }
-    ]
+      ]
+    },
+    "api": {
+      "root": "api",
+      "entrypoint": "main:app"
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": { "service": "web" } }]
 }
