@@ -229,11 +229,21 @@ function Chat() {
   );
 }
 
-export function Showcase() {
+/**
+ * `embedded` renders the chat alone, for showing inside another site's panel
+ * (the portfolio's "Pamudu AI" drawer loads `/embed` in an iframe).
+ */
+export function Showcase({ embedded = false }: { embedded?: boolean }) {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId={AGENT_ID} useSingleEndpoint={false} enableInspector={false}>
-      <div className="flex h-dvh flex-col lg:grid lg:grid-cols-[340px_1fr]">
-        <Sidebar />
+      <div
+        className={
+          embedded
+            ? "flex h-dvh flex-col bg-vp-surface"
+            : "flex h-dvh flex-col lg:grid lg:grid-cols-[340px_1fr]"
+        }
+      >
+        {!embedded && <Sidebar />}
         <Chat />
       </div>
     </CopilotKitProvider>

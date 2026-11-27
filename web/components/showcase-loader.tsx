@@ -11,6 +11,6 @@ const Showcase = dynamic(() => import("./showcase").then((m) => m.Showcase), {
   ),
 });
 
-export function ShowcaseLoader() {
-  return <Showcase />;
+export function ShowcaseLoader({ embedded = false }: { embedded?: boolean }) {
+  return <Showcase embedded={embedded} />;
 }
