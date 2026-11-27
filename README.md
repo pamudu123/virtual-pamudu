@@ -68,10 +68,9 @@ The tests mock all network calls and never call the model.
 
 One Vercel project with two [Services](https://vercel.com/docs/services) (beta), defined in the root `vercel.json`. The website is public; the API is private and reached through a service binding.
 
-| Project | Root directory | Environment variables |
-|---|---|---|
-| API | `api` | `OPENROUTER_API_KEY`, `GITHUB_TOKEN`, `BREVO_API_KEY`, `DATABASE_URL`, `ALLOWED_ORIGINS` |
-| Website | `web` | `AGENT_URL` = `https://<api-domain>/agent` |
+Set these environment variables on the project: `OPENROUTER_API_KEY`, `GITHUB_TOKEN`, `BREVO_API_KEY`, `DATABASE_URL`. `AGENT_URL` is not needed on Vercel; the website gets the API's address from the `AGENT_INTERNAL_URL` binding.
+
+In the project's settings, leave the root directory empty and remove any install or build command overrides, so each service uses its own.
 
 `DATABASE_URL` must point at a Postgres database (for example Neon from the Vercel Marketplace, using the pooled connection string). Without it conversation state lives in one process only, and on serverless a follow-up request, an approval, or an answer to the assistant's question can land on a different instance and fail. The tables are created automatically on first start.
 
