@@ -1,147 +1,80 @@
-# Virtual Pamudu - AI Personal Assistant
+# Virtual Pamudu
 
-**Virtual Pamudu** is a sophisticated AI agent designed to represent [Pamudu Ranasinghe](https://github.com/pamudu123). Built with **FastAPI** and **LangGraph**, it serves as an interactive interface to Pamudu's "Digital Brain," capable of answering questions about his background, projects, research, and content.
+An AI assistant that represents [Pamudu Ranasinghe](https://github.com/pamudu123) and showcases his work. Visitors chat with it and it answers by *showing* things: project cards, a career timeline, articles, videos, and a contact form, all streamed live into the conversation.
 
-## Key Features
+```
+web/  Next.js + CopilotKit  ──AG-UI over SSE──►  api/  FastAPI + deepagents
+      chat, cards, chips, approval                    ├─ digital_brain/ as a read-only filesystem
+                                                      ├─ tools: GitHub, Medium, YouTube, contact
+                                                      ├─ subagents: code-researcher, content-researcher
+                                                      └─ checkpointer (conversation state)
+```
 
-*   **Context-Aware Chat:** Maintains conversation history for natural, multi-turn dialogue.
-*   **Digital Brain:** Accesses structured personal data (Resume, Bio, Skills).
-*   **Tool Integration:**
-    *   **Medium:** Fetches and reads Pamudu's latest articles.
-    *   **YouTube:** searches and retrieves transcripts from video content.
-    *   **GitHub:** Explores repositories and reads code.
-    *   **Email:** Can draft and send emails on behalf of the user (approvals required).
-*   **Persistent Memory:** Uses Firebase Firestore to save chat sessions.
+## What it does
 
----
+| In the chat | How |
+|---|---|
+| Answers stream token by token | AG-UI events over SSE |
+| Repo, article and video cards | `list_*` / `search_*` tool results rendered by the frontend |
+| Experience timeline, skill chips, project and publication cards | `show_profile_section` tool |
+| Contact links card | `show_contact_card` tool |
+| Live plan checklist on multi-step questions | deepagents todo list |
+| Follow-up question chips after every answer | `suggest_followups` tool |
+| The assistant asks the visitor a question, with option buttons | `ask_visitor` tool (pauses the run) |
+| Editable "message to Pamudu" draft with Send / Cancel | human-in-the-loop interrupt on `send_message_to_pamudu` |
 
-## 🚀 API Usage
+The agent is public, so it is locked down: its filesystem tools are read-only (`ls`, `read_file`, `glob`, `grep`), writes are denied by a permission rule, it has no shell, and the contact tool can only email Pamudu.
 
-The application exposes a RESTful API powered by FastAPI.
+## Layout
 
-### Base URL
-*   **Local:** `http://localhost:8000`
-*   **Production:** `https://your-vercel-app.vercel.app`
+- `api/main.py` — FastAPI app; mounts the agent at `POST /agent` (AG-UI) and `GET /health`.
+- `api/agent/graph.py` — the deep agent: model, backend, subagents, middleware, approval rule.
+- `api/agent/prompts.py` — system prompts.
+- `api/agent/tools/` — GitHub, Medium, YouTube, contact, and UI tools.
+- `api/digital_brain/` — the knowledge base (markdown/YAML). `AGENTS.md` is the index the agent loads as memory.
+- `web/app/api/copilotkit/` — CopilotKit runtime route that proxies the browser to the agent.
+- `web/components/showcase.tsx` — page layout, tool-call rendering, follow-ups, interrupts.
+- `web/components/tool-cards.tsx`, `interrupts.tsx` — the components shown in the chat.
+- `web/lib/profile.ts` — the static name, bio, links and starter prompts in the page chrome.
 
-### 1. Check Health
-Ensure the API is running.
+## Run locally
+
+Copy `.env.example` to `.env` in the repo root and fill in at least `OPENROUTER_API_KEY`.
+
 ```bash
-GET /health
+# terminal 1: agent API on :8000
+cd api
+uv sync
+uv run uvicorn main:app --port 8000
+
+# terminal 2: website on :3000
+cd web
+npm install
+npm run dev
 ```
 
-### 2. Create a Session
-Start a new conversation to get a `session_id`.
+Open http://localhost:3000.
+
+## Tests
+
 ```bash
-POST /sessions
-```
-**Response:**
-```json
-{
-  "session_id": "unique-session-id",
-  "created_at": "..."
-}
+cd api
+uv run pytest
 ```
 
-### 3. Chat with Agent
-Send a message to the agent.
-```bash
-POST /chat
-Content-Type: application/json
+The tests mock all network calls and never call the model.
 
-{
-  "session_id": "unique-session-id",
-  "message": "Tell me about your latest research paper."
-}
-```
+## Deploy (Vercel)
 
-### 4. Chat with Streaming (Real-time)
-Receive real-time updates ("Thinking...", "Searching...") via Server-Sent Events (SSE).
-```bash
-POST /chat/stream
-Content-Type: application/json
+Two Vercel projects from this one repository:
 
-{
-  "session_id": "unique-session-id",
-  "message": "Search GitHub for my projects"
-}
-```
-**Response Stream:**
-```json
-data: {"type": "status", "node": "planner", "message": "🔎 Using tools: GitHub..."}
+| Project | Root directory | Environment variables |
+|---|---|---|
+| API | `api` | `OPENROUTER_API_KEY`, `GITHUB_TOKEN`, `BREVO_API_KEY`, `DATABASE_URL`, `ALLOWED_ORIGINS` |
+| Website | `web` | `AGENT_URL` = `https://<api-domain>/agent` |
 
-data: {"type": "result", "answer": "...", "citations": [...]}
-```
+`DATABASE_URL` must point at a Postgres database (for example Neon from the Vercel Marketplace, using the pooled connection string). Without it conversation state lives in one process only, and on serverless a follow-up request, an approval, or an answer to the assistant's question can land on a different instance and fail. The tables are created automatically on first start.
 
----
+## Updating what the assistant knows
 
-## 🛠️ Local Setup
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/pamudu123/virtual-pamudu.git
-    cd virtual-pamudu
-    ```
-
-2.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Configure Environment:**
-    Create a `.env` file with the following keys:
-    ```env
-    OPENROUTER_API_KEY=sk-...
-    FIREBASE_CREDENTIALS_PATH=./virtual-assistant-firebase-adminsdk.json
-    GITHUB_TOKEN=ghp_...
-    ```
-
-4.  **Run the Server:**
-    ```bash
-    python src/app.py
-    ```
-
----
-
-## 🧪 Testing
-
-This project uses `pytest` for testing.
-
-1.  **Run all tests:**
-    ```bash
-    pytest tests/
-    ```
-
-2.  **Run specific tests:**
-    ```bash
-    pytest tests/test_planner.py  # Test logic and tool selection
-    pytest tests/test_tools.py    # Test individual tool functions
-    ```
-
-3.  **See Model Answers:**
-    To see the model's inputs and answers during testing, use the `-s` flag:
-    ```bash
-    pytest -s tests/test_planner.py
-    ```
-
----
-
-
-## ☁️ Deployment (Vercel)
-
-This project is configured for serverless deployment on **Vercel**.
-
-1.  **Install Vercel CLI:** `npm i -g vercel`
-2.  **Deploy:** `vercel`
-3.  **Environment Variables:** Add the following in your Vercel Project Settings:
-    *   `OPENROUTER_API_KEY`
-    *   `GITHUB_TOKEN`
-    *   `FIREBASE_CREDENTIALS_JSON` (Paste the content of your Firebase JSON file here)
-
----
-
-## 📂 Project Structure
-
-*   `src/app.py`: FastAPI entry point and API routes.
-*   `src/chat.py`: LangGraph agent logic (Planner, Executor, Synthesizer nodes).
-*   `src/tools/`: Tool implementations (Brain, GitHub, Medium, YouTube, Email).
-*   `digital_brain/`: Static markdown and YAML files representing the knowledge base.
+Edit the files in `api/digital_brain/` and redeploy the API. If you add a new file or folder, add a row for it in `api/digital_brain/AGENTS.md` so the agent knows it exists.
