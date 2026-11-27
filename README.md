@@ -66,7 +66,7 @@ The tests mock all network calls and never call the model.
 
 ## Deploy (Vercel)
 
-Two Vercel projects from this one repository:
+One Vercel project with two [Services](https://vercel.com/docs/services) (beta), defined in the root `vercel.json`. The website is public; the API is private and reached through a service binding.
 
 | Project | Root directory | Environment variables |
 |---|---|---|
