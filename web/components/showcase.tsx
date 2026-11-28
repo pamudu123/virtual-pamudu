@@ -15,6 +15,7 @@ import { useCallback, type ReactNode } from "react";
 import { AGENT_ID, profile, starterSuggestions, topics } from "@/lib/profile";
 import {
   AskVisitorCard,
+  FeedbackCard,
   MessageApprovalCard,
   readInterrupt,
   type ApprovalDecision,
@@ -108,6 +109,12 @@ function renderTool({ name, parameters, status, result }: ToolRenderProps) {
           : "Message not sent";
       return <StatusPill text={text} done />;
     }
+    case "ask_feedback":
+      return done && result?.includes("Feedback received") ? (
+        <StatusPill text="Feedback received" done />
+      ) : (
+        <></>
+      );
     case "suggest_followups":
     case "ask_visitor":
       return <></>;
@@ -279,6 +286,9 @@ function Chat() {
     render: ({ event, resolve }) => {
       const value = readInterrupt(event.value);
       if (!value) return <></>;
+      if ("type" in value && value.type === "feedback") {
+        return <FeedbackCard value={value} onSubmit={(answer) => void resolve(answer)} />;
+      }
       if ("type" in value) {
         return <AskVisitorCard value={value} onAnswer={(answer) => void resolve(answer)} />;
       }

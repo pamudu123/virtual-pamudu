@@ -62,6 +62,7 @@ def build_agent(checkpointer: BaseCheckpointSaver):
             t.show_role_fit,
             t.show_quick_actions,
             t.ask_visitor,
+            t.ask_feedback,
             t.send_message_to_pamudu,
             t.suggest_followups,
         ],

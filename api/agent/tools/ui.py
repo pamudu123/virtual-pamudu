@@ -229,6 +229,8 @@ def suggest_followups(questions: list[str]) -> str:
 
     Args:
         questions: Exactly 3 short questions (under 10 words each) the visitor
-            might ask next, written from the visitor's point of view.
+            might ask next, written from the visitor's point of view. When the
+            conversation looks like it is wrapping up, make one of them exactly
+            "Give feedback on this assistant" (see the Feedback rules).
     """
     return "Follow-up suggestions shown."

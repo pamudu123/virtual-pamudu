@@ -1,6 +1,7 @@
 """Tools available to the Virtual Pamudu agent."""
 
 from .contact import send_message_to_pamudu
+from .feedback import ask_feedback
 from .github import get_repo_file, get_repo_readme, list_github_repos, search_github_repos
 from .medium import list_medium_articles, read_medium_article, search_medium_articles
 from .ui import (
@@ -15,6 +16,7 @@ from .ui import (
 from .youtube import get_video_transcript, list_youtube_videos, search_youtube_videos
 
 __all__ = [
+    "ask_feedback",
     "ask_visitor",
     "get_repo_file",
     "get_repo_readme",

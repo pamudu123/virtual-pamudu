@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-// ---------- shapes of the two pauses the agent can raise ----------
+// ---------- shapes of the pauses the agent can raise ----------
 
 export type AskVisitorValue = {
   type: "ask_visitor";
@@ -12,11 +12,15 @@ export type AskVisitorValue = {
   fields?: string[];
 };
 
+export type FeedbackValue = { type: "feedback"; question: string };
+
+export type FeedbackAnswer = { rating: number; name: string; comment: string } | { skipped: true };
+
 export type ApprovalValue = {
   action_requests: { name: string; args: Record<string, string> }[];
 };
 
-export function readInterrupt(raw: unknown): AskVisitorValue | ApprovalValue | null {
+export function readInterrupt(raw: unknown): AskVisitorValue | FeedbackValue | ApprovalValue | null {
   let value = raw;
   if (typeof value === "string") {
     try {
@@ -31,6 +35,7 @@ export function readInterrupt(raw: unknown): AskVisitorValue | ApprovalValue | n
   }
   if (!value || typeof value !== "object") return null;
   if ((value as AskVisitorValue).type === "ask_visitor") return value as AskVisitorValue;
+  if ((value as FeedbackValue).type === "feedback") return value as FeedbackValue;
   if (Array.isArray((value as ApprovalValue).action_requests)) return value as ApprovalValue;
   return null;
 }
@@ -151,6 +156,106 @@ export function AskVisitorCard({
         </button>
       </form>
     </div>
+  );
+}
+
+// ---------- the visitor rates the assistant ----------
+
+const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+export function FeedbackCard({
+  value,
+  onSubmit,
+}: {
+  value: FeedbackValue;
+  onSubmit: (answer: FeedbackAnswer) => void;
+}) {
+  const [rating, setRating] = useState<number | null>(null);
+  const [name, setName] = useState("");
+  const [comment, setComment] = useState("");
+  const [sent, setSent] = useState(false);
+
+  const finish = (answer: FeedbackAnswer) => {
+    if (sent) return;
+    setSent(true);
+    onSubmit(answer);
+  };
+
+  return (
+    <form
+      className={cardClass}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (rating === null) return;
+        finish({ rating, name: name.trim(), comment: comment.trim() });
+      }}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-vp-accent">Your feedback</p>
+      <p id="feedback-question" className="mt-1 text-sm font-medium text-vp-ink">
+        {value.question}
+      </p>
+
+      <div role="radiogroup" aria-labelledby="feedback-question" className="mt-3 grid grid-cols-5 gap-1.5 sm:grid-cols-10">
+        {RATINGS.map((n) => {
+          const selected = rating === n;
+          return (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={`${n} out of 10`}
+              disabled={sent}
+              onClick={() => setRating(n)}
+              className={
+                selected
+                  ? "flex h-11 items-center justify-center rounded-lg sm:aspect-square sm:h-auto border border-vp-ink bg-vp-ink text-sm font-semibold text-white disabled:opacity-60"
+                  : "flex h-11 items-center justify-center rounded-lg sm:aspect-square sm:h-auto border border-vp-line bg-vp-surface text-sm font-medium text-vp-ink transition hover:border-vp-ink disabled:opacity-60"
+              }
+            >
+              {n}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex justify-between text-[11px] text-vp-muted">
+        <span>Not at all</span>
+        <span>Absolutely</span>
+      </div>
+
+      <label className="mt-3 block text-xs text-vp-muted">
+        Your name (optional)
+        <input
+          value={name}
+          disabled={sent}
+          maxLength={80}
+          autoComplete="name"
+          onChange={(event) => setName(event.target.value)}
+          className={inputClass}
+        />
+      </label>
+      <label className="mt-2 block text-xs text-vp-muted">
+        Suggestions, or what you think (optional)
+        <textarea
+          rows={3}
+          value={comment}
+          disabled={sent}
+          maxLength={2000}
+          onChange={(event) => setComment(event.target.value)}
+          className={inputClass}
+        />
+      </label>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={sent || rating === null} className={primaryButton}>
+          {sent ? "Submitting…" : "Submit"}
+        </button>
+        <button type="button" disabled={sent} className={quietButton} onClick={() => finish({ skipped: true })}>
+          Not now
+        </button>
+        {rating === null && !sent && <span className="text-[11px] text-vp-muted">Pick a number to submit.</span>}
+      </div>
+    </form>
   );
 }
 

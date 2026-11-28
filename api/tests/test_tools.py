@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import feedparser
 
-from agent.tools import contact, github, medium, ui, youtube
+from agent.tools import contact, feedback, github, mailer, medium, ui, youtube
 
 
 def _repo(name: str, description: str):
@@ -95,7 +95,7 @@ def test_contact_card_reads_profile_links():
 def test_send_message_always_goes_to_pamudu(monkeypatch):
     monkeypatch.setenv("BREVO_API_KEY", "k")
     monkeypatch.setenv("CONTACT_RECIPIENT_EMAIL", "owner@example.com")
-    with patch.object(contact.httpx, "post") as post:
+    with patch.object(mailer.httpx, "post") as post:
         post.return_value.is_error = False
         result = contact.send_message_to_pamudu.invoke(
             {
@@ -122,7 +122,7 @@ def test_send_message_without_api_key_reports_error(monkeypatch):
 
 def test_send_message_reports_a_rejection_without_leaking_details(monkeypatch):
     monkeypatch.setenv("BREVO_API_KEY", "k")
-    with patch.object(contact.httpx, "post") as post:
+    with patch.object(mailer.httpx, "post") as post:
         post.return_value.is_error = True
         post.return_value.status_code = 401
         post.return_value.text = '{"message":"Key not found","code":"unauthorized"}'
@@ -136,7 +136,7 @@ def test_send_message_reports_a_rejection_without_leaking_details(monkeypatch):
 
 def test_send_message_needs_a_name_and_a_real_email(monkeypatch):
     monkeypatch.setenv("BREVO_API_KEY", "k")
-    with patch.object(contact.httpx, "post") as post:
+    with patch.object(mailer.httpx, "post") as post:
         for args in (
             {"sender_name": "", "sender_email": "a@b.co", "subject": "s", "message": "m"},
             {"sender_name": "A", "sender_email": "not-an-email", "subject": "s", "message": "m"},
@@ -174,3 +174,45 @@ def test_stats_and_role_fit_only_acknowledge():
         }
     )
     assert "1 strong" in fit and "1 not covered" in fit
+
+
+def _submit_feedback(monkeypatch, answer):
+    """Run the feedback tool as if the visitor had answered the panel with `answer`."""
+    monkeypatch.setenv("BREVO_API_KEY", "k")
+    monkeypatch.setattr(feedback, "interrupt", lambda payload: answer)
+    with patch.object(mailer.httpx, "post") as post:
+        post.return_value.is_error = False
+        result = feedback.ask_feedback.invoke({})
+    return result, post
+
+
+def test_feedback_is_delivered_to_pamudu_without_telling_the_model_how(monkeypatch):
+    result, post = _submit_feedback(
+        monkeypatch, {"rating": 9, "name": "Ada <b>", "comment": "Fast.\n<script>x</script>"}
+    )
+    payload = post.call_args.kwargs["json"]
+    assert payload["subject"] == "[Virtual Pamudu] Feedback: 9/10"
+    assert payload["to"][0]["name"] == "Pamudu"
+    assert "<script>" not in payload["htmlContent"]
+    assert "Ada &lt;b&gt;" in payload["htmlContent"]
+    assert "Feedback received (9/10)" in result
+    assert "email" not in result.lower()
+
+
+def test_feedback_accepts_json_text_and_optional_fields(monkeypatch):
+    result, post = _submit_feedback(monkeypatch, '{"rating": "10"}')
+    assert "10/10" in result
+    assert "Not given" in post.call_args.kwargs["json"]["htmlContent"]
+
+
+def test_feedback_closed_or_invalid_sends_nothing(monkeypatch):
+    for answer in ({}, {"rating": 0}, {"rating": 11}, {"rating": "x"}, "not json", None):
+        result, post = _submit_feedback(monkeypatch, answer)
+        assert "without submitting" in result
+        post.assert_not_called()
+
+
+def test_feedback_still_thanks_the_visitor_when_delivery_fails(monkeypatch):
+    monkeypatch.delenv("BREVO_API_KEY", raising=False)
+    monkeypatch.setattr(feedback, "interrupt", lambda payload: {"rating": 7})
+    assert "Feedback received (7/10)" in feedback.ask_feedback.invoke({})

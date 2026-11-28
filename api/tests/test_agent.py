@@ -29,6 +29,7 @@ EXPECTED_TOOLS = {
     "show_role_fit",
     "show_quick_actions",
     "ask_visitor",
+    "ask_feedback",
     "send_message_to_pamudu",
     "suggest_followups",
 }
