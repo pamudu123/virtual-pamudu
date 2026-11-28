@@ -305,10 +305,17 @@ export function ProfileSection({ args }: { args: ProfileSectionArgs | undefined 
               )}
             </>
           );
-          const className =
-            "flex flex-col rounded-xl border border-vp-line bg-vp-surface p-4 transition hover:border-vp-accent hover:shadow-md";
+          // Only cards that open a link react to hover, so a card never looks
+          // clickable when it has nowhere to go.
+          const className = "flex flex-col rounded-xl border border-vp-line bg-vp-surface p-4";
           return item.url ? (
-            <a key={index} href={item.url} target="_blank" rel="noreferrer" className={className}>
+            <a
+              key={index}
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className={`${className} transition hover:border-vp-accent hover:shadow-md`}
+            >
               {body}
             </a>
           ) : (

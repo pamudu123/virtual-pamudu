@@ -24,7 +24,14 @@ class ProfileItem(BaseModel):
     period: str = Field(default="", description="Dates, e.g. 'Jul 2024 - Aug 2025'.")
     description: str = Field(default="", description="One or two short sentences.")
     tags: list[str] = Field(default_factory=list, description="Short labels, e.g. skills or technologies.")
-    url: str = Field(default="", description="Link, if the source file has one.")
+    url: str = Field(
+        default="",
+        description=(
+            "Public link that opens when the visitor clicks the card, e.g. the 'Paper URL' of a "
+            "publication or a project's repository. Always fill it when the source file gives one; "
+            "leave empty otherwise. Never invent a link."
+        ),
+    )
 
 
 @tool
