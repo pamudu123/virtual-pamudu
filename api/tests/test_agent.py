@@ -65,4 +65,5 @@ def test_send_message_skill_is_in_the_knowledge_base():
     backend = build_backend()
     skill = str(backend.read("/brain/skills/send-message/SKILL.md"))
     assert "name: send-message" in skill
-    assert "Never ask for a subject" in skill
+    assert 'fields=["Your name", "Your email"]' in skill
+    assert "Never ask for a name, an email, a subject line" in skill

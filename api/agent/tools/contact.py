@@ -23,11 +23,12 @@ EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 def send_message_to_pamudu(sender_name: str, sender_email: str, subject: str, message: str) -> dict:
     """Send a visitor's message to Pamudu's inbox.
 
-    Call this as soon as you have the visitor's name and email address. Write
-    the subject and the message yourself from what the visitor has said; never
-    ask them for a subject or for the wording. The chat shows your draft as an
-    editable card and nothing is sent until the visitor presses Send, so do not
-    ask "shall I send it?" yourself.
+    Call this once you have the visitor's name and email address (collect
+    missing ones with the `ask_visitor` question panel, never in plain text).
+    Write the subject and the message yourself from what the visitor has said;
+    never ask them for a subject or for the wording. The chat shows your draft
+    as an editable card and nothing is sent until the visitor presses Send, so
+    do not ask "shall I send it?" yourself.
 
     The result has `sent: true` when the email was delivered. If it has an
     `error`, nothing was sent: tell the visitor so.

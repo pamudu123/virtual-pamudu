@@ -68,21 +68,41 @@ def show_contact_card() -> dict:
 
 
 @tool
-def ask_visitor(question: str, options: list[str] | None = None) -> str:
-    """Ask the visitor a clarifying question and wait for their answer.
+def ask_visitor(
+    question: str,
+    options: list[str] | None = None,
+    fields: list[str] | None = None,
+) -> str:
+    """Show the visitor a question panel in the chat and wait for their answer.
 
-    Use this when a request is ambiguous or you need to know what the visitor
-    cares about before you can give a useful answer (for example which project,
-    or whether they are hiring, collaborating or just curious). Ask one question
-    at a time and only when it changes what you would show.
+    Two ways to use it:
+
+    - A choice: pass `options`. Use this when a request is ambiguous or you
+      need to know what the visitor cares about before you can give a useful
+      answer (for example which project, or whether they are hiring,
+      collaborating or just curious).
+    - A small form: pass `fields`. Use this when you need short details from
+      the visitor, such as their name and email before sending Pamudu a
+      message. All fields are answered together in one panel.
+
+    Ask one panel at a time and only when it changes what you would do. Never
+    ask for these things in plain text instead.
 
     Args:
-        question: The question, one short sentence.
+        question: The question or prompt, one short sentence.
         options: 2 to 4 short answer choices shown as buttons. The visitor can
-            also type their own answer. Leave empty for an open question.
+            also type their own answer. Leave empty when using `fields`.
+        fields: 1 to 4 short labels, one text input each, e.g.
+            ["Your name", "Your email"]. A label containing "email" is checked
+            as an email address. Leave empty when using `options`.
     """
     answer = interrupt(
-        {"type": "ask_visitor", "question": question, "options": list(options or [])[:4]}
+        {
+            "type": "ask_visitor",
+            "question": question,
+            "options": list(options or [])[:4],
+            "fields": [str(f) for f in (fields or [])][:4],
+        }
     )
     if isinstance(answer, dict):
         answer = answer.get("answer", "")

@@ -4,7 +4,13 @@ import { useState } from "react";
 
 // ---------- shapes of the two pauses the agent can raise ----------
 
-export type AskVisitorValue = { type: "ask_visitor"; question: string; options: string[] };
+export type AskVisitorValue = {
+  type: "ask_visitor";
+  question: string;
+  options: string[];
+  /** Labels of short inputs to collect together, e.g. name and email. */
+  fields?: string[];
+};
 
 export type ApprovalValue = {
   action_requests: { name: string; args: Record<string, string> }[];
@@ -54,6 +60,64 @@ export function AskVisitorCard({
     setSent(true);
     onAnswer(choice.trim());
   };
+
+  const fields = (value.fields ?? []).filter((label) => label.trim());
+  const [details, setDetails] = useState<Record<string, string>>({});
+  const isEmail = (label: string) => /e-?mail/i.test(label);
+  const filled = (label: string) => {
+    const text = (details[label] ?? "").trim();
+    return isEmail(label) ? /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text) : Boolean(text);
+  };
+
+  // A small form: every field is answered in this one panel.
+  if (fields.length > 0) {
+    const ready = fields.every(filled);
+    return (
+      <div className={cardClass}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-vp-accent">Quick question</p>
+        <p className="mt-1 text-sm font-medium text-vp-ink">{value.question}</p>
+        <form
+          className="mt-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!ready) return;
+            answer(fields.map((label) => `${label}: ${(details[label] ?? "").trim()}`).join("\n"));
+          }}
+        >
+          <div className={fields.length > 1 ? "grid gap-2 sm:grid-cols-2" : "grid gap-2"}>
+            {fields.map((label, index) => (
+              <label key={label} className="text-xs text-vp-muted">
+                {label}
+                <input
+                  type={isEmail(label) ? "email" : "text"}
+                  autoComplete={isEmail(label) ? "email" : /name/i.test(label) ? "name" : "off"}
+                  placeholder={isEmail(label) ? "you@example.com" : ""}
+                  autoFocus={index === 0}
+                  value={details[label] ?? ""}
+                  disabled={sent}
+                  onChange={(event) => setDetails({ ...details, [label]: event.target.value })}
+                  className={inputClass}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="submit" disabled={sent || !ready} className={primaryButton}>
+              Continue
+            </button>
+            <button
+              type="button"
+              disabled={sent}
+              className={quietButton}
+              onClick={() => answer("The visitor chose not to share these details.")}
+            >
+              Skip
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className={cardClass}>
@@ -108,9 +172,15 @@ export function MessageApprovalCard({
   const [draft, setDraft] = useState<Record<string, string>>(action.args);
   const [sent, setSent] = useState(false);
   const edited = JSON.stringify(draft) !== JSON.stringify(action.args);
-  const valid = Boolean(
-    draft.sender_name?.trim() && /.+@.+\..+/.test(draft.sender_email ?? "") && draft.message?.trim(),
-  );
+  const hasName = Boolean(draft.sender_name?.trim());
+  const hasEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((draft.sender_email ?? "").trim());
+  const valid = hasName && hasEmail && Boolean(draft.message?.trim());
+  // The agent leaves name and email blank when it does not know them; this
+  // panel is where the visitor supplies them.
+  const needsDetails = !action.args.sender_name?.trim() || !action.args.sender_email?.trim();
+  const missing = [!hasName && "your name", !hasEmail && "your email"].filter(Boolean).join(" and ");
+  const fieldClass = (ok: boolean) =>
+    ok || sent ? inputClass : inputClass.replace("border-vp-line", "border-vp-accent");
 
   const field = (key: string) => ({
     value: draft[key] ?? "",
@@ -128,16 +198,29 @@ export function MessageApprovalCard({
   return (
     <div className={cardClass}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-vp-accent">
-        Message to Pamudu · review before sending
+        Message to Pamudu · {needsDetails ? "add your details and review" : "review before sending"}
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-vp-muted">
           Your name
-          <input {...field("sender_name")} />
+          <input
+            {...field("sender_name")}
+            className={fieldClass(hasName)}
+            placeholder="Your name"
+            autoComplete="name"
+            autoFocus={!action.args.sender_name?.trim()}
+          />
         </label>
         <label className="text-xs text-vp-muted">
           Your email
-          <input type="email" {...field("sender_email")} />
+          <input
+            type="email"
+            {...field("sender_email")}
+            className={fieldClass(hasEmail)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            autoFocus={Boolean(action.args.sender_name?.trim()) && !action.args.sender_email?.trim()}
+          />
         </label>
       </div>
       <label className="mt-2 block text-xs text-vp-muted">
@@ -169,7 +252,11 @@ export function MessageApprovalCard({
         >
           Cancel
         </button>
-        <span className="text-[11px] text-vp-muted">Only Pamudu receives this. He can reply to your email.</span>
+        <span className="text-[11px] text-vp-muted">
+          {!sent && missing
+            ? `Add ${missing} to send.`
+            : "Only Pamudu receives this. He can reply to your email."}
+        </span>
       </div>
     </div>
   );
