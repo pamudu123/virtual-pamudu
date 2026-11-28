@@ -91,6 +91,8 @@ def build_agent(checkpointer: BaseCheckpointSaver):
         ],
         backend=backend,
         memory=["/brain/AGENTS.md"],
+        # Task playbooks, one folder per skill, read on demand.
+        skills=["/brain/skills/"],
         permissions=[FilesystemPermission(operations=["write"], paths=["/**"], mode="deny")],
         middleware=[
             FilesystemMiddleware(backend=backend, tools=READ_ONLY_FS_TOOLS),

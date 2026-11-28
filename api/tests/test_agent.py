@@ -59,3 +59,10 @@ def test_brain_mount_blocks_path_traversal():
     backend = build_backend()
     with pytest.raises(ValueError, match="traversal"):
         backend.read("/brain/../main.py")
+
+
+def test_send_message_skill_is_in_the_knowledge_base():
+    backend = build_backend()
+    skill = str(backend.read("/brain/skills/send-message/SKILL.md"))
+    assert "name: send-message" in skill
+    assert "Never ask for a subject" in skill

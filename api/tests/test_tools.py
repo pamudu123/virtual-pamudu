@@ -96,7 +96,7 @@ def test_send_message_always_goes_to_pamudu(monkeypatch):
     monkeypatch.setenv("BREVO_API_KEY", "k")
     monkeypatch.setenv("CONTACT_RECIPIENT_EMAIL", "owner@example.com")
     with patch.object(contact.httpx, "post") as post:
-        post.return_value.raise_for_status.return_value = None
+        post.return_value.is_error = False
         result = contact.send_message_to_pamudu.invoke(
             {
                 "sender_name": "Ada <b>",
@@ -118,3 +118,29 @@ def test_send_message_without_api_key_reports_error(monkeypatch):
         {"sender_name": "A", "sender_email": "a@b.co", "subject": "s", "message": "m"}
     )
     assert "error" in result
+
+
+def test_send_message_reports_a_rejection_without_leaking_details(monkeypatch):
+    monkeypatch.setenv("BREVO_API_KEY", "k")
+    with patch.object(contact.httpx, "post") as post:
+        post.return_value.is_error = True
+        post.return_value.status_code = 401
+        post.return_value.text = '{"message":"Key not found","code":"unauthorized"}'
+        result = contact.send_message_to_pamudu.invoke(
+            {"sender_name": "A", "sender_email": "a@b.co", "subject": "s", "message": "m"}
+        )
+    assert result["sent"] is False
+    assert "Nothing was sent" in result["error"]
+    assert "Key not found" not in result["error"]
+
+
+def test_send_message_needs_a_name_and_a_real_email(monkeypatch):
+    monkeypatch.setenv("BREVO_API_KEY", "k")
+    with patch.object(contact.httpx, "post") as post:
+        for args in (
+            {"sender_name": "", "sender_email": "a@b.co", "subject": "s", "message": "m"},
+            {"sender_name": "A", "sender_email": "not-an-email", "subject": "s", "message": "m"},
+            {"sender_name": "A", "sender_email": "a@b.co", "subject": "s", "message": "  "},
+        ):
+            assert contact.send_message_to_pamudu.invoke(args)["sent"] is False
+    post.assert_not_called()

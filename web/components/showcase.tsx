@@ -66,13 +66,23 @@ function renderTool({ name, parameters, status, result }: ToolRenderProps) {
     case "send_message_to_pamudu": {
       if (!done) return <></>;
       const sent = result?.includes('"sent": true') || result?.includes('"sent":true');
-      return <StatusPill text={sent ? "Message delivered to Pamudu" : "Message not sent"} done />;
+      // An `error` means the visitor pressed Send and delivery failed, which
+      // is different from the visitor cancelling the draft.
+      const failed = !sent && Boolean(result?.includes('"error"'));
+      const text = sent
+        ? "Message delivered to Pamudu"
+        : failed
+          ? "Couldn't deliver the message"
+          : "Message not sent";
+      return <StatusPill text={text} done />;
     }
     case "suggest_followups":
     case "ask_visitor":
       return <></>;
     default:
       if (KNOWLEDGE_TOOLS.has(name)) {
+        // Reading a skill playbook is internal housekeeping, not a profile lookup.
+        if (JSON.stringify(args).includes("/skills/")) return <></>;
         return <StatusPill text={done ? "Checked his profile" : "Checking his profile…"} done={done} />;
       }
       return <StatusPill text={done ? "Done" : "Working…"} done={done} />;
