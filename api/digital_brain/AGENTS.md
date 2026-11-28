@@ -12,6 +12,8 @@ Everything you know about Pamudu Ranasinghe lives under `/brain/`. Read the file
 | Projects | `/brain/resume/projects.md` |
 | Awards | `/brain/resume/awards.md` |
 | Publications list | `/brain/resume/publications.md` |
+| Patent application (pending) | `/brain/resume/patents.md` |
+| Family (share only when the visitor asks about his family) | `/brain/profile/family.md` |
 | Full research papers (one markdown file each) | `/brain/research/` |
 
 Tips:

@@ -25,6 +25,9 @@ EXPECTED_TOOLS = {
     "search_youtube_videos",
     "show_profile_section",
     "show_contact_card",
+    "show_stats",
+    "show_role_fit",
+    "show_quick_actions",
     "ask_visitor",
     "send_message_to_pamudu",
     "suggest_followups",
@@ -67,3 +70,29 @@ def test_send_message_skill_is_in_the_knowledge_base():
     assert "name: send-message" in skill
     assert 'fields=["Your name", "Your email"]' in skill
     assert "Never ask for a name, an email, a subject line" in skill
+
+
+def test_main_skills_skill_and_its_sources_are_in_the_knowledge_base():
+    backend = build_backend()
+    skill = str(backend.read("/brain/skills/main-skills/SKILL.md"))
+    assert "name: main-skills" in skill
+    assert "Core Strengths" in str(backend.read("/brain/resume/skills.md"))
+    patents = str(backend.read("/brain/resume/patents.md"))
+    assert "pending" in patents and "granted" in patents
+    assert "patents.md" in str(backend.read("/brain/AGENTS.md"))
+
+
+def test_family_skill_shares_only_when_asked():
+    backend = build_backend()
+    skill = str(backend.read("/brain/skills/family/SKILL.md"))
+    assert "name: family" in skill
+    assert "Never offer it as a follow-up" in skill
+    family = str(backend.read("/brain/profile/family.md"))
+    assert "UNSW" in family and "University of Ruhuna" in family
+
+
+def test_role_fit_skill_is_in_the_knowledge_base():
+    backend = build_backend()
+    skill = str(backend.read("/brain/skills/role-fit/SKILL.md"))
+    assert "name: role-fit" in skill
+    assert "show_role_fit" in skill

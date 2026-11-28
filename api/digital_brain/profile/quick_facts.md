@@ -13,6 +13,7 @@ confidence: medium
 
 ## Snapshot
 - Current: Lead AI Engineer (CreditSource)
+- Main skills: creative problem solving, critical thinking, staying up to date with the latest technology
 - Focus: NLP, Computer Vision, Audio/Embedded ML, agentic RAG & evaluation
 - Experience: 4+ years building ML solutions
 

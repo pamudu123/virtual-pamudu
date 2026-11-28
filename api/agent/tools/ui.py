@@ -55,6 +55,118 @@ def show_profile_section(
     return f"Displayed {len(items)} {section} item(s) to the visitor. Do not repeat them as a list."
 
 
+class Stat(BaseModel):
+    """One headline number."""
+
+    value: str = Field(description="The figure itself, kept short, e.g. '10M+', '250K', '70-80%', '4+ years'.")
+    label: str = Field(description="What the figure measures, in a few words, e.g. 'daily interactions'.")
+    note: str = Field(default="", description="Optional context, e.g. the product or employer it comes from.")
+
+
+@tool
+def show_stats(heading: str, stats: list[Stat]) -> str:
+    """Show headline numbers about Pamudu's work as a row of stat tiles.
+
+    Use this when numbers make the point better than sentences: an overview of
+    him, the impact of a role or project, or a recruiter asking what he has
+    delivered. Use only figures that appear in the knowledge base, exactly as
+    written there. Never estimate, round up or invent a number.
+
+    Args:
+        heading: Short heading shown above the tiles, e.g. "Impact at a glance".
+        stats: 2 to 6 tiles, strongest first.
+    """
+    return f"Displayed {len(stats)} stat tile(s) to the visitor. Do not repeat the numbers as a list."
+
+
+class FitItem(BaseModel):
+    """One requirement of a role, with what in Pamudu's background meets it."""
+
+    requirement: str = Field(description="The requirement, in a few words, e.g. 'Production LLM systems'.")
+    evidence: str = Field(
+        default="",
+        description="One short sentence naming the role, project or paper that shows it. Facts from the knowledge base only.",
+    )
+
+
+@tool
+def show_role_fit(
+    role: str,
+    strong: list[FitItem],
+    partial: list[FitItem],
+    gaps: list[str],
+    summary: str,
+) -> str:
+    """Show how Pamudu's background matches a role, as a role fit card.
+
+    Use this when a visitor shares a job description or names a role and asks
+    whether he is a fit. Read his experience, skills and projects first. Be
+    honest: put a requirement under `strong` only when the knowledge base
+    clearly shows it, under `partial` when he has related but not identical
+    experience, and under `gaps` when nothing in the knowledge base covers it.
+
+    Args:
+        role: The role's title, e.g. "Senior ML Engineer at Acme".
+        strong: Requirements he clearly meets, each with its evidence.
+        partial: Requirements he partly meets, each with what he does have.
+        gaps: Requirements the knowledge base does not cover, a few words each.
+        summary: One or two sentences giving the overall picture.
+    """
+    return (
+        f"Displayed a role fit card for '{role}' ({len(strong)} strong, {len(partial)} partial, "
+        f"{len(gaps)} not covered). Do not repeat it as a list."
+    )
+
+
+# Quick actions are a fixed menu: links come from the profile file and prompts
+# are written here, so the model can never put an invented URL on a button.
+QUICK_ACTION_LINKS = {
+    "linkedin": "View LinkedIn",
+    "github": "View GitHub",
+    "youtube": "Watch on YouTube",
+    "google_scholar": "View Google Scholar",
+}
+QUICK_ACTION_PROMPTS = {
+    "message": ("Send him a message", "I'd like to send Pamudu a message."),
+    "role_fit": ("Check fit for a role", "I have a role in mind. Can you check how well Pamudu fits it?"),
+    "experience": ("See his experience", "Walk me through Pamudu's work experience."),
+    "projects": ("See his projects", "Show me Pamudu's best projects."),
+    "skills": ("See his skills", "What are Pamudu's main skills?"),
+    "research": ("See his research", "What research has Pamudu published?"),
+}
+QuickAction = Literal[
+    "message", "role_fit", "experience", "projects", "skills", "research",
+    "linkedin", "github", "youtube", "google_scholar",
+]
+
+
+@tool
+def show_quick_actions(actions: list[QuickAction]) -> dict:
+    """Show a row of quick action buttons under your answer.
+
+    Use this when there is an obvious next step for the visitor: after a role
+    fit card, when they show hiring or collaboration interest, or after an
+    overview of him. Link buttons open his public profiles; the others start
+    that conversation for the visitor. Use it at most once per answer and not
+    on every turn.
+
+    Args:
+        actions: 2 to 4 actions, most useful first.
+    """
+    profile = yaml.safe_load((BRAIN_DIR / "profile" / "profile.yaml").read_text(encoding="utf-8"))
+    links = profile.get("links") or {}
+    resolved = []
+    for action in dict.fromkeys(actions):
+        if action in QUICK_ACTION_PROMPTS:
+            label, prompt = QUICK_ACTION_PROMPTS[action]
+            resolved.append({"id": action, "kind": "prompt", "label": label, "prompt": prompt})
+        elif action in QUICK_ACTION_LINKS and links.get(action):
+            resolved.append(
+                {"id": action, "kind": "link", "label": QUICK_ACTION_LINKS[action], "href": links[action]}
+            )
+    return {"actions": resolved[:4]}
+
+
 @tool
 def show_contact_card() -> dict:
     """Show Pamudu's public contact links (LinkedIn, GitHub, YouTube, Scholar) as a card."""

@@ -18,6 +18,12 @@ from langgraph.checkpoint.memory import MemorySaver  # noqa: E402
 from agent.graph import build_agent  # noqa: E402
 
 AGENT_NAME = "virtual_pamudu"
+# How many graph steps one answer may take. Each lookup costs a few steps, so
+# LangGraph's default of 25 runs out in the middle of an answer that needs
+# several lookups, and the run dies. The AG-UI adapter replaces the graph's own
+# (much higher) limit with its config, so the limit has to be set here. It is
+# kept finite so a confused run on this public agent still stops.
+RECURSION_LIMIT = int(os.getenv("AGENT_RECURSION_LIMIT", "150"))
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if sys.platform == "win32" and DATABASE_URL:
@@ -100,6 +106,7 @@ add_langgraph_fastapi_endpoint(
         name=AGENT_NAME,
         description="Answers questions about Pamudu Ranasinghe and his work.",
         graph=graph,
+        config={"recursion_limit": RECURSION_LIMIT},
         # Raw LangGraph events carry the system prompt and full tool payloads.
         # Visitors' browsers must never receive them.
         emit_raw_events=False,

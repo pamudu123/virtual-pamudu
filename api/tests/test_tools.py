@@ -144,3 +144,33 @@ def test_send_message_needs_a_name_and_a_real_email(monkeypatch):
         ):
             assert contact.send_message_to_pamudu.invoke(args)["sent"] is False
     post.assert_not_called()
+
+
+def test_quick_actions_use_fixed_prompts_and_profile_links():
+    result = ui.show_quick_actions.invoke({"actions": ["message", "github", "message", "linkedin"]})
+    actions = result["actions"]
+    assert [a["id"] for a in actions] == ["message", "github", "linkedin"]
+    assert actions[0]["kind"] == "prompt" and "message" in actions[0]["prompt"]
+    assert actions[1] == {
+        "id": "github",
+        "kind": "link",
+        "label": "View GitHub",
+        "href": "https://github.com/pamudu123",
+    }
+
+
+def test_stats_and_role_fit_only_acknowledge():
+    stats = ui.show_stats.invoke(
+        {"heading": "Impact", "stats": [{"value": "10M+", "label": "daily interactions"}]}
+    )
+    assert "1 stat tile" in stats
+    fit = ui.show_role_fit.invoke(
+        {
+            "role": "ML Engineer",
+            "strong": [{"requirement": "Python", "evidence": "Used across his roles."}],
+            "partial": [],
+            "gaps": ["Kubernetes"],
+            "summary": "Strong on ML, lighter on infrastructure.",
+        }
+    )
+    assert "1 strong" in fit and "1 not covered" in fit

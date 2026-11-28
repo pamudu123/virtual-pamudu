@@ -329,6 +329,125 @@ export function ProfileSection({ args }: { args: ProfileSectionArgs | undefined 
   );
 }
 
+// ---------- Stat tiles ----------
+
+type Stat = { value?: string; label?: string; note?: string };
+
+export function StatTiles({ args }: { args: { heading?: string; stats?: Stat[] } | undefined }) {
+  const stats = (args?.stats ?? []).filter((stat) => stat && stat.value && stat.label);
+  const heading = args?.heading || "At a glance";
+  if (stats.length === 0) return <StatusPill text="Gathering the numbers" done={false} />;
+  return (
+    <Frame label={heading}>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {stats.map((stat, index) => (
+          <div key={index} className="flex flex-col rounded-xl border border-vp-line bg-vp-surface p-4">
+            <dd className="text-2xl font-semibold leading-none tracking-tight text-vp-ink">{stat.value}</dd>
+            <dt className="mt-2 text-[13px] font-medium leading-snug text-vp-ink">{stat.label}</dt>
+            {stat.note && <dd className="mt-1 text-[11px] leading-snug text-vp-muted">{stat.note}</dd>}
+          </div>
+        ))}
+      </dl>
+    </Frame>
+  );
+}
+
+// ---------- Role fit card ----------
+
+type FitItem = { requirement?: string; evidence?: string };
+
+type RoleFitArgs = {
+  role?: string;
+  strong?: FitItem[];
+  partial?: FitItem[];
+  gaps?: string[];
+  summary?: string;
+};
+
+function FitGroup({
+  title,
+  mark,
+  markClass,
+  items,
+}: {
+  title: string;
+  mark: string;
+  markClass: string;
+  items: FitItem[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-4 first:mt-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-vp-muted">
+        {title} · {items.length}
+      </p>
+      <ul className="mt-2 flex flex-col gap-2">
+        {items.map((item, index) => (
+          <li key={index} className="flex items-start gap-2.5">
+            <span
+              aria-hidden="true"
+              className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${markClass}`}
+            >
+              {mark}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium leading-snug text-vp-ink">{item.requirement}</span>
+              {item.evidence && (
+                <span className="block text-[13px] leading-snug text-vp-muted">{item.evidence}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function RoleFitCard({ args }: { args: RoleFitArgs | undefined }) {
+  const named = (items: FitItem[] | undefined) => (items ?? []).filter((item) => item && item.requirement);
+  const strong = named(args?.strong);
+  const partial = named(args?.partial);
+  const gaps = (args?.gaps ?? []).filter(Boolean).map((gap) => ({ requirement: gap }));
+  const total = strong.length + partial.length + gaps.length;
+  if (total === 0) return <StatusPill text="Comparing his background with the role" done={false} />;
+
+  const share = (count: number) => `${(count / total) * 100}%`;
+  return (
+    <Frame label="Role fit">
+      <div className="rounded-xl border border-vp-line bg-vp-surface p-4">
+        {args?.role && <p className="text-base font-semibold leading-snug text-vp-ink">{args.role}</p>}
+        {args?.summary && <p className="mt-1 text-[13px] leading-snug text-vp-muted">{args.summary}</p>}
+
+        {/* Proportion of strong, partial and uncovered requirements. */}
+        <div
+          className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-vp-surface-2"
+          role="img"
+          aria-label={`${strong.length} strong, ${partial.length} partial, ${gaps.length} not covered`}
+        >
+          <span className="bg-vp-ink" style={{ width: share(strong.length) }} />
+          <span className="bg-vp-muted/50" style={{ width: share(partial.length) }} />
+        </div>
+
+        <div className="mt-4">
+          <FitGroup title="Strong match" mark="✓" markClass="bg-vp-ink text-white" items={strong} />
+          <FitGroup
+            title="Partial match"
+            mark="~"
+            markClass="border border-vp-muted text-vp-muted"
+            items={partial}
+          />
+          <FitGroup
+            title="Not shown in his profile"
+            mark="–"
+            markClass="border border-vp-line text-vp-muted"
+            items={gaps}
+          />
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 // ---------- Contact card ----------
 
 type Contact = {

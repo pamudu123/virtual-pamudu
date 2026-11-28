@@ -10,7 +10,7 @@ import {
   useRenderTool,
   type Message,
 } from "@copilotkit/react-core/v2";
-import { useCallback } from "react";
+import { useCallback, type ReactNode } from "react";
 
 import { AGENT_ID, profile, starterSuggestions, topics } from "@/lib/profile";
 import {
@@ -24,9 +24,12 @@ import {
   ContactCard,
   ProfileSection,
   RepoCards,
+  RoleFitCard,
+  StatTiles,
   StatusPill,
   TodoList,
   VideoCards,
+  parseResult,
 } from "./tool-cards";
 
 type ToolRenderProps = {
@@ -38,6 +41,17 @@ type ToolRenderProps = {
 
 const KNOWLEDGE_TOOLS = new Set(["read_file", "ls", "glob", "grep"]);
 
+/**
+ * A lookup that never got its result. While the agent is still working the
+ * loading placeholder is right; once the run has ended (it failed or was
+ * stopped) the placeholder would sit there forever, so say so instead.
+ */
+function Lookup({ done, label, children }: { done: boolean; label: string; children: ReactNode }) {
+  const { agent } = useAgent({ agentId: AGENT_ID });
+  if (!done && !agent.isRunning) return <StatusPill text={`Couldn't load ${label}`} done />;
+  return <>{children}</>;
+}
+
 /** Turns the agent's tool calls into components inside the conversation. */
 function renderTool({ name, parameters, status, result }: ToolRenderProps) {
   const done = status === "complete";
@@ -46,17 +60,35 @@ function renderTool({ name, parameters, status, result }: ToolRenderProps) {
   switch (name) {
     case "list_github_repos":
     case "search_github_repos":
-      return <RepoCards result={result} done={done} />;
+      return (
+        <Lookup done={done} label="his repositories">
+          <RepoCards result={result} done={done} />
+        </Lookup>
+      );
     case "list_medium_articles":
     case "search_medium_articles":
-      return <ArticleCards result={result} done={done} />;
+      return (
+        <Lookup done={done} label="his articles">
+          <ArticleCards result={result} done={done} />
+        </Lookup>
+      );
     case "list_youtube_videos":
     case "search_youtube_videos":
-      return <VideoCards result={result} done={done} />;
+      return (
+        <Lookup done={done} label="his videos">
+          <VideoCards result={result} done={done} />
+        </Lookup>
+      );
     case "show_profile_section":
       return <ProfileSection args={args} />;
     case "show_contact_card":
       return <ContactCard result={result} done={done} />;
+    case "show_stats":
+      return <StatTiles args={args} />;
+    case "show_role_fit":
+      return <RoleFitCard args={args} />;
+    case "show_quick_actions":
+      return done ? <QuickActions result={result} /> : <></>;
     case "write_todos":
       return <TodoList todos={args.todos as never} />;
     case "task": {
@@ -128,6 +160,41 @@ function useSendMessage() {
     [agent, copilotkit, isReady],
   );
   return { send, isReady };
+}
+
+type QuickAction =
+  | { id: string; kind: "link"; label: string; href: string }
+  | { id: string; kind: "prompt"; label: string; prompt: string };
+
+const actionClass =
+  "rounded-full border border-vp-line bg-vp-surface px-3.5 py-1.5 text-[13px] font-medium text-vp-ink transition hover:border-vp-ink disabled:opacity-50";
+
+/** Buttons for the visitor's next step: open a profile, or start a conversation. */
+function QuickActions({ result }: { result?: string }) {
+  const { send, isReady } = useSendMessage();
+  const actions = parseResult<{ actions?: QuickAction[] }>(result)?.actions ?? [];
+  if (actions.length === 0) return <></>;
+  return (
+    <div className="my-3 flex flex-wrap gap-2">
+      {actions.map((action) =>
+        action.kind === "link" ? (
+          <a key={action.id} href={action.href} target="_blank" rel="noreferrer" className={actionClass}>
+            {action.label} ↗
+          </a>
+        ) : (
+          <button
+            key={action.id}
+            type="button"
+            disabled={!isReady}
+            onClick={() => send(action.prompt)}
+            className={actionClass}
+          >
+            {action.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
 }
 
 function Sidebar() {
